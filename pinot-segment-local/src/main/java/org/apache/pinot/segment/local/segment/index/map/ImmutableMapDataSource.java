@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import org.apache.pinot.segment.spi.ColumnMetadata;
 import org.apache.pinot.segment.spi.datasource.DataSourceMetadata;
 import org.apache.pinot.segment.spi.index.IndexReader;
+import org.apache.pinot.segment.spi.index.StandardIndexes;
 import org.apache.pinot.segment.spi.index.column.ColumnIndexContainer;
 import org.apache.pinot.segment.spi.index.reader.ForwardIndexReader;
 import org.apache.pinot.segment.spi.index.reader.ForwardIndexReaderContext;
@@ -52,6 +53,11 @@ public class ImmutableMapDataSource extends BaseMapDataSource {
       }
     }
     _mapIndexReader = mapIndexReader;
+  }
+
+  @Override
+  public ForwardIndexReader<?> getForwardIndex() {
+    return getIndex(StandardIndexes.map());
   }
 
   @Override
