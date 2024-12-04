@@ -27,6 +27,9 @@ import java.util.Map;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.pinot.spi.config.table.FieldConfig;
+import org.apache.pinot.spi.config.table.IndexingConfig;
+import org.apache.pinot.spi.config.table.MapIndexConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.config.table.ingestion.IngestionConfig;
@@ -76,17 +79,80 @@ public class MapFieldTypeTest extends CustomDataQueryClusterIntegrationTest {
             ComplexFieldSpec.VALUE_FIELD,
             new DimensionFieldSpec(ComplexFieldSpec.VALUE_FIELD, FieldSpec.DataType.INT, true)
         ));
-    return new Schema.SchemaBuilder().setSchemaName(getTableName())
+    Schema schema = new Schema.SchemaBuilder().setSchemaName(getTableName())
         .addField(stringMapFieldSpec)
         .addField(intMapFieldSpec)
         .build();
+
+    LOGGER.info("Schema: {}", schema);
+    return schema;
   }
 
+  /**
+   * Approach 1: Modern approach using general indexes
+   */
+  private IndexingConfig createModernIndexConfig() {
+    IndexingConfig indexingConfig = new IndexingConfig();
+    Map<String, MapIndexConfig> mapIndexConfigs = new HashMap<>();
+
+    // Configure for STRING_MAP_FIELD_NAME
+    Map<String, Object> stringMapConfig = new HashMap<>();
+    stringMapConfig.put("mapIndexCreatorClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexCreator");
+    stringMapConfig.put("mapIndexReaderClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
+    stringMapConfig.put("dynamicallyCreateDenseKeys", false);
+    stringMapConfig.put("maxKeys", 1000);
+    stringMapConfig.put("denseKeys", Arrays.asList("k1", "k2"));
+    mapIndexConfigs.put(STRING_MAP_FIELD_NAME, new MapIndexConfig(false, stringMapConfig));
+
+    // Configure for INT_MAP_FIELD_NAME  
+    Map<String, Object> intMapConfig = new HashMap<>();
+    intMapConfig.put("mapIndexCreatorClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexCreator");
+    intMapConfig.put("mapIndexReaderClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
+    intMapConfig.put("dynamicallyCreateDenseKeys", false);
+    intMapConfig.put("maxKeys", 1000);
+    intMapConfig.put("denseKeys", Arrays.asList("k0", "k3", "kn"));
+    mapIndexConfigs.put(INT_MAP_FIELD_NAME, new MapIndexConfig(false, intMapConfig));
+
+    // Disable forward index by setting noDictionaryColumns
+    List<String> noDictionaryColumns = Arrays.asList(STRING_MAP_FIELD_NAME, INT_MAP_FIELD_NAME);
+    indexingConfig.setNoDictionaryColumns(noDictionaryColumns);
+
+    indexingConfig.setMapIndexConfigs(mapIndexConfigs);
+    return indexingConfig;
+  }
+
+  /**
+   * Approach 2: Using MapIndexConfigs
+   */
+  /**
+   * Approach 3: Using MapIndexColumns (simplest, uses defaults)
+   */
+
+  /**
+   * Modified createOfflineTableConfig to use different approaches based on test case
+   */
   @Override
   public TableConfig createOfflineTableConfig() {
-    IngestionConfig ingestionConfig = new IngestionConfig();
-    return new TableConfigBuilder(TableType.OFFLINE).setTableName(getTableName()).setIngestionConfig(ingestionConfig)
+    // Get indexing config
+    IndexingConfig indexingConfig = createModernIndexConfig();
+
+    // Create table config with field configs
+    TableConfig config =
+        new TableConfigBuilder(TableType.OFFLINE).setTableName(getTableName()).setIngestionConfig(new IngestionConfig())
+            .setFieldConfigList(Arrays.asList(
+                new FieldConfig(STRING_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, List.of(), null,
+                    Map.of(FieldConfig.FORWARD_INDEX_DISABLED, "false")))).setFieldConfigList(Arrays.asList(
+                new FieldConfig(INT_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, List.of(), null,
+                    Map.of(FieldConfig.FORWARD_INDEX_DISABLED, "false"))))
         .build();
+
+    config.setIndexingConfig(indexingConfig);
+    LOGGER.info("Table config: {}", config);
+    return config;
   }
 
   public File createAvroFile()

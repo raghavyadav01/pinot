@@ -271,7 +271,9 @@ public class SegmentColumnarIndexCreator implements SegmentCreator {
       throws Exception {
     C config = fieldIndexConfigs.getConfig(index);
     if (config.isEnabled()) {
-      creatorsByIndex.put(index, index.createIndexCreator(context, config));
+      if (index != StandardIndexes.forward()) {
+        creatorsByIndex.put(index, index.createIndexCreator(context, config));
+      }
     }
   }
 
