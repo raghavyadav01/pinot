@@ -27,7 +27,6 @@ import java.util.Map;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.pinot.spi.config.table.FieldConfig;
 import org.apache.pinot.spi.config.table.IndexingConfig;
 import org.apache.pinot.spi.config.table.MapIndexConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
@@ -143,11 +142,6 @@ public class MapFieldTypeTest extends CustomDataQueryClusterIntegrationTest {
     // Create table config with field configs
     TableConfig config =
         new TableConfigBuilder(TableType.OFFLINE).setTableName(getTableName()).setIngestionConfig(new IngestionConfig())
-            .setFieldConfigList(Arrays.asList(
-                new FieldConfig(STRING_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, List.of(), null,
-                    Map.of(FieldConfig.FORWARD_INDEX_DISABLED, "false")))).setFieldConfigList(Arrays.asList(
-                new FieldConfig(INT_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, List.of(), null,
-                    Map.of(FieldConfig.FORWARD_INDEX_DISABLED, "false"))))
         .build();
 
     config.setIndexingConfig(indexingConfig);

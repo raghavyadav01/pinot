@@ -18,8 +18,10 @@
  */
 package org.apache.pinot.integration.tests.custom;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -27,14 +29,14 @@ import java.util.Map;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.pinot.spi.config.table.TableConfig;
-import org.apache.pinot.spi.config.table.TableType;
-import org.apache.pinot.spi.config.table.ingestion.IngestionConfig;
+import org.apache.pinot.spi.config.table.FieldConfig;
+import org.apache.pinot.spi.config.table.IndexingConfig;
+import org.apache.pinot.spi.config.table.MapIndexConfig;
 import org.apache.pinot.spi.data.ComplexFieldSpec;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.data.Schema;
-import org.apache.pinot.spi.utils.builder.TableConfigBuilder;
+import org.apache.pinot.spi.utils.JsonUtils;
 import org.testng.annotations.Test;
 
 import static org.apache.avro.Schema.create;
@@ -85,11 +87,87 @@ public class MapFieldTypeRealtimeTest extends CustomDataQueryClusterIntegrationT
         .build();
   }
 
+  /**
+   * Approach 1: Modern approach using general indexes
+   */
+  private IndexingConfig createModernIndexConfig() {
+    IndexingConfig indexingConfig = new IndexingConfig();
+    Map<String, MapIndexConfig> mapIndexConfigs = new HashMap<>();
+
+    // Configure for STRING_MAP_FIELD_NAME
+    Map<String, Object> stringMapConfig = new HashMap<>();
+    stringMapConfig.put("mapIndexCreatorClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexCreator");
+    stringMapConfig.put("mapIndexReaderClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
+    stringMapConfig.put("dynamicallyCreateDenseKeys", false);
+    stringMapConfig.put("maxKeys", 1000);
+    stringMapConfig.put("denseKeys", Arrays.asList("k1", "k2"));
+    mapIndexConfigs.put(STRING_MAP_FIELD_NAME, new MapIndexConfig(false, stringMapConfig));
+
+    // Configure for INT_MAP_FIELD_NAME
+    Map<String, Object> intMapConfig = new HashMap<>();
+    intMapConfig.put("mapIndexCreatorClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexCreator");
+    intMapConfig.put("mapIndexReaderClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
+    intMapConfig.put("dynamicallyCreateDenseKeys", false);
+    intMapConfig.put("maxKeys", 1000);
+    intMapConfig.put("denseKeys", Arrays.asList("k0", "k3", "kn"));
+    mapIndexConfigs.put(INT_MAP_FIELD_NAME, new MapIndexConfig(false, intMapConfig));
+
+    // Disable forward index by setting noDictionaryColumns
+    List<String> noDictionaryColumns = Arrays.asList(STRING_MAP_FIELD_NAME, INT_MAP_FIELD_NAME);
+    indexingConfig.setNoDictionaryColumns(noDictionaryColumns);
+
+    indexingConfig.setMapIndexConfigs(mapIndexConfigs);
+    return indexingConfig;
+  }
+
   @Override
-  public TableConfig createOfflineTableConfig() {
-    IngestionConfig ingestionConfig = new IngestionConfig();
-    return new TableConfigBuilder(TableType.OFFLINE).setTableName(getTableName()).setIngestionConfig(ingestionConfig)
-        .build();
+  protected List<FieldConfig> getFieldConfigs() {
+    List<FieldConfig> fieldConfigs = new ArrayList<>();
+
+    // Add map index config for STRING_MAP_FIELD_NAME
+    Map<String, String> stringMapProperties = new HashMap<>();
+    Map<String, Object> stringMapIndex = new HashMap<>();
+    stringMapIndex.put("maxKeys", 1000);
+    stringMapIndex.put("denseKeys", Arrays.asList("k1", "k2"));
+    stringMapIndex.put("dynamicallyCreateDenseKeys", false);
+
+    // Create the indexes configuration
+    Map<String, Object> indexConfig = new HashMap<>();
+    Map<String, Object> mapConfig = new HashMap<>();
+    mapConfig.put("mapIndexCreatorClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexCreator");
+    mapConfig.put("mapIndexReaderClassName",
+        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
+    mapConfig.put("maxKeys", 1000);
+    mapConfig.put("denseKeys", Arrays.asList("k1", "k2"));
+    mapConfig.put("dynamicallyCreateDenseKeys", false);
+    indexConfig.put("map", mapConfig);
+
+    JsonNode indexes = JsonUtils.objectToJsonNode(indexConfig);
+
+    fieldConfigs.add(
+        new FieldConfig(STRING_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, null, null, null, null, indexes,
+            stringMapProperties, null));
+
+    // Add map index config for INT_MAP_FIELD_NAME
+    Map<String, String> intMapProperties = new HashMap<>();
+    Map<String, Object> intMapIndex = new HashMap<>();
+    intMapIndex.put("maxKeys", 1000);
+    intMapIndex.put("denseKeys", Arrays.asList("k0", "k3", "kn"));
+    intMapIndex.put("dynamicallyCreateDenseKeys", false);
+    try {
+      intMapProperties.put("mapIndex", JsonUtils.objectToString(intMapIndex));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+    fieldConfigs.add(new FieldConfig(INT_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, null, null, null, null, indexes,
+        intMapProperties, null));
+
+    return fieldConfigs;
   }
 
   public File createAvroFile()
