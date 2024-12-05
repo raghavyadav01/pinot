@@ -96,6 +96,11 @@ public class MutableMapIndexImpl implements MapIndexReader, MutableIndex {
   }
 
   @Override
+  public void commit() {
+    // Get the list of dense keys and write it to disk so that dense key writer can read and use it
+  }
+
+  @Override
   public void close()
       throws IOException {
   }

@@ -18,29 +18,33 @@
  */
 package org.apache.pinot.integration.tests.custom;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.helix.model.IdealState;
+import org.apache.pinot.common.utils.HashUtil;
 import org.apache.pinot.spi.config.table.FieldConfig;
-import org.apache.pinot.spi.config.table.IndexingConfig;
-import org.apache.pinot.spi.config.table.MapIndexConfig;
 import org.apache.pinot.spi.data.ComplexFieldSpec;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.data.Schema;
+import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.JsonUtils;
+import org.apache.pinot.util.TestUtils;
 import org.testng.annotations.Test;
 
 import static org.apache.avro.Schema.create;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 
 @Test(suiteName = "CustomClusterIntegrationTest")
@@ -87,53 +91,9 @@ public class MapFieldTypeRealtimeTest extends CustomDataQueryClusterIntegrationT
         .build();
   }
 
-  /**
-   * Approach 1: Modern approach using general indexes
-   */
-  private IndexingConfig createModernIndexConfig() {
-    IndexingConfig indexingConfig = new IndexingConfig();
-    Map<String, MapIndexConfig> mapIndexConfigs = new HashMap<>();
-
-    // Configure for STRING_MAP_FIELD_NAME
-    Map<String, Object> stringMapConfig = new HashMap<>();
-    stringMapConfig.put("mapIndexCreatorClassName",
-        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexCreator");
-    stringMapConfig.put("mapIndexReaderClassName",
-        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
-    stringMapConfig.put("dynamicallyCreateDenseKeys", false);
-    stringMapConfig.put("maxKeys", 1000);
-    stringMapConfig.put("denseKeys", Arrays.asList("k1", "k2"));
-    mapIndexConfigs.put(STRING_MAP_FIELD_NAME, new MapIndexConfig(false, stringMapConfig));
-
-    // Configure for INT_MAP_FIELD_NAME
-    Map<String, Object> intMapConfig = new HashMap<>();
-    intMapConfig.put("mapIndexCreatorClassName",
-        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexCreator");
-    intMapConfig.put("mapIndexReaderClassName",
-        "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
-    intMapConfig.put("dynamicallyCreateDenseKeys", false);
-    intMapConfig.put("maxKeys", 1000);
-    intMapConfig.put("denseKeys", Arrays.asList("k0", "k3", "kn"));
-    mapIndexConfigs.put(INT_MAP_FIELD_NAME, new MapIndexConfig(false, intMapConfig));
-
-    // Disable forward index by setting noDictionaryColumns
-    List<String> noDictionaryColumns = Arrays.asList(STRING_MAP_FIELD_NAME, INT_MAP_FIELD_NAME);
-    indexingConfig.setNoDictionaryColumns(noDictionaryColumns);
-
-    indexingConfig.setMapIndexConfigs(mapIndexConfigs);
-    return indexingConfig;
-  }
-
   @Override
   protected List<FieldConfig> getFieldConfigs() {
     List<FieldConfig> fieldConfigs = new ArrayList<>();
-
-    // Add map index config for STRING_MAP_FIELD_NAME
-    Map<String, String> stringMapProperties = new HashMap<>();
-    Map<String, Object> stringMapIndex = new HashMap<>();
-    stringMapIndex.put("maxKeys", 1000);
-    stringMapIndex.put("denseKeys", Arrays.asList("k1", "k2"));
-    stringMapIndex.put("dynamicallyCreateDenseKeys", false);
 
     // Create the indexes configuration
     Map<String, Object> indexConfig = new HashMap<>();
@@ -142,30 +102,24 @@ public class MapFieldTypeRealtimeTest extends CustomDataQueryClusterIntegrationT
         "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexCreator");
     mapConfig.put("mapIndexReaderClassName",
         "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
+    mapConfig.put("mapIndexMutableClassName", "org.apache.pinot.segment.local.segment.index.map.MutableMapIndexImpl");
     mapConfig.put("maxKeys", 1000);
     mapConfig.put("denseKeys", Arrays.asList("k1", "k2"));
     mapConfig.put("dynamicallyCreateDenseKeys", false);
-    indexConfig.put("map", mapConfig);
+
+    Map<String, Object> config = new HashMap<>();
+    config.put("configs", mapConfig);
+
+    indexConfig.put("map", config);
 
     JsonNode indexes = JsonUtils.objectToJsonNode(indexConfig);
 
     fieldConfigs.add(
-        new FieldConfig(STRING_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, null, null, null, null, indexes,
-            stringMapProperties, null));
+        new FieldConfig(STRING_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, null, null, null, null, indexes, null,
+            null));
 
-    // Add map index config for INT_MAP_FIELD_NAME
-    Map<String, String> intMapProperties = new HashMap<>();
-    Map<String, Object> intMapIndex = new HashMap<>();
-    intMapIndex.put("maxKeys", 1000);
-    intMapIndex.put("denseKeys", Arrays.asList("k0", "k3", "kn"));
-    intMapIndex.put("dynamicallyCreateDenseKeys", false);
-    try {
-      intMapProperties.put("mapIndex", JsonUtils.objectToString(intMapIndex));
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
     fieldConfigs.add(new FieldConfig(INT_MAP_FIELD_NAME, FieldConfig.EncodingType.RAW, null, null, null, null, indexes,
-        intMapProperties, null));
+        null, null));
 
     return fieldConfigs;
   }
@@ -211,9 +165,55 @@ public class MapFieldTypeRealtimeTest extends CustomDataQueryClusterIntegrationT
     return _setSelectionDefaultDocCount;
   }
 
+  public Set<String> getConsumingSegmentsFromIdealState(String tableNameWithType) {
+    IdealState tableIdealState = _controllerStarter.getHelixResourceManager().getTableIdealState(tableNameWithType);
+    Map<String, Map<String, String>> segmentAssignment = tableIdealState.getRecord().getMapFields();
+    Set<String> matchingSegments = new HashSet<>(HashUtil.getHashMapCapacity(segmentAssignment.size()));
+    for (Map.Entry<String, Map<String, String>> entry : segmentAssignment.entrySet()) {
+      Map<String, String> instanceStateMap = entry.getValue();
+      if (instanceStateMap.containsValue(CommonConstants.Helix.StateModel.SegmentStateModel.CONSUMING)) {
+        matchingSegments.add(entry.getKey());
+      }
+    }
+    return matchingSegments;
+  }
+
+  private String forceCommit(String tableName)
+      throws Exception {
+    String response = sendPostRequest(_controllerRequestURLBuilder.forTableForceCommit(tableName), null);
+    return JsonUtils.stringToJsonNode(response).get("forceCommitJobId").asText();
+  }
+
+  public boolean isForceCommitJobCompleted(String forceCommitJobId)
+      throws Exception {
+    String jobStatusResponse = sendGetRequest(_controllerRequestURLBuilder.forForceCommitJobStatus(forceCommitJobId));
+    JsonNode jobStatus = JsonUtils.stringToJsonNode(jobStatusResponse);
+
+    assertEquals(jobStatus.get("jobId").asText(), forceCommitJobId);
+    assertEquals(jobStatus.get("jobType").asText(), "FORCE_COMMIT");
+    return jobStatus.get("numberOfSegmentsYetToBeCommitted").asInt(-1) == 0;
+  }
+
   @Test(dataProvider = "useBothQueryEngines")
   public void testQueries(boolean useMultiStageQueryEngine)
       throws Exception {
+
+    Set<String> consumingSegments = getConsumingSegmentsFromIdealState(getTableName() + "_REALTIME");
+    String jobId = forceCommit(getTableName());
+
+    TestUtils.waitForCondition(aVoid -> {
+      try {
+        if (isForceCommitJobCompleted(jobId)) {
+          assertTrue(_controllerStarter.getHelixResourceManager()
+              .getOnlineSegmentsFromIdealState(getTableName() + "_REALTIME", false).containsAll(consumingSegments));
+          return true;
+        }
+        return false;
+      } catch (Exception e) {
+        return false;
+      }
+    }, 60000L, "Error verifying force commit operation on table!");
+
     setUseMultiStageQueryEngine(useMultiStageQueryEngine);
     // Selection only
     String query = "SELECT * FROM " + getTableName() + " ORDER BY ts";
