@@ -79,27 +79,36 @@ public class DenseSparseMixedMapIndexCreator extends BaseMapIndexCreator {
     // Initialize configuration from indexConfig's config map
     Map<String, Object> configMap = indexConfig.getConfigs();
 
-    // Parse dense keys from config, handling different input types
-    if (configMap.containsKey("denseKeys")) {
-      Object denseKeysObj = configMap.get("denseKeys");
-      if (denseKeysObj instanceof List) {
-        _denseKeys = Set.copyOf((List<String>) denseKeysObj);
-      } else {
-        throw new IllegalArgumentException(
-            "Invalid denseKeys format in config. Expected String, String[], List<String> or Set<String>");
+    // Parse dynamicallyCreateDenseKeys with proper type checking
+    boolean dynamicallyCreateDenseKeys =
+        configMap.containsKey("dynamicallyCreateDenseKeys") ? (Boolean) configMap.get("dynamicallyCreateDenseKeys")
+            : false;
+
+    // Determine dense keys based on configuration
+    if (dynamicallyCreateDenseKeys) {
+      _denseKeys = readTopKeysFromFile(_indexDir, _name);
+      if (_denseKeys.isEmpty()) {
+        throw new IllegalStateException(
+            "dynamicallyCreateDenseKeys is true but no .topkeys file found for column: " + _name);
       }
     } else {
-      _denseKeys = Set.of();
+      // Parse dense keys from config
+      if (configMap.containsKey("denseKeys")) {
+        Object denseKeysObj = configMap.get("denseKeys");
+        if (denseKeysObj instanceof List) {
+          _denseKeys = Set.copyOf((List<String>) denseKeysObj);
+        } else {
+          throw new IllegalArgumentException(
+              "Invalid denseKeys format in config. Expected List<String> or Set<String>");
+        }
+      } else {
+        _denseKeys = Set.of();
+      }
     }
 
     // Parse maxNumDenseKeys with proper type checking
     int maxNumDenseKeys =
         configMap.containsKey("maxNumDenseKeys") ? ((Number) configMap.get("maxNumDenseKeys")).intValue() : 0;
-
-    // Parse dynamicallyCreateDenseKeys with proper type checking
-    boolean dynamicallyCreateDenseKeys =
-        configMap.containsKey("dynamicallyCreateDenseKeys") ? (Boolean) configMap.get("dynamicallyCreateDenseKeys")
-            : false;
 
     // Create a separate writer for each dense key
     for (String denseKey : _denseKeys) {
@@ -259,5 +268,24 @@ public class DenseSparseMixedMapIndexCreator extends BaseMapIndexCreator {
   @Override
   public FieldSpec.DataType getValueType() {
     return FieldSpec.DataType.MAP;
+  }
+
+  /**
+   * Reads the top keys from the .topkeys file.
+   *
+   * @param indexDir Directory containing the .topkeys file
+   * @param columnName Name of the column
+   * @return Set of dense keys read from the file
+   * @throws IOException if reading the file fails
+   */
+  private Set<String> readTopKeysFromFile(File indexDir, String columnName)
+      throws IOException {
+    File topKeysFile = new File(indexDir, "../../../consumers/" + columnName + ".topkeys");
+    if (!topKeysFile.exists()) {
+      return Set.of();
+    }
+
+    List<String> lines = Files.readAllLines(topKeysFile.toPath(), StandardCharsets.UTF_8);
+    return Set.copyOf(lines);
   }
 }

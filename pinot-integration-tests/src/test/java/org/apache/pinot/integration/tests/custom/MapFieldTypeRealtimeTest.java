@@ -103,9 +103,9 @@ public class MapFieldTypeRealtimeTest extends CustomDataQueryClusterIntegrationT
     mapConfig.put("mapIndexReaderClassName",
         "org.apache.pinot.segment.local.segment.index.map.DenseSparseMixedMapIndexReader");
     mapConfig.put("mapIndexMutableClassName", "org.apache.pinot.segment.local.segment.index.map.MutableMapIndexImpl");
-    mapConfig.put("maxKeys", 1000);
+    mapConfig.put("maxDenseKeys", 5);
     mapConfig.put("denseKeys", Arrays.asList("k1", "k2"));
-    mapConfig.put("dynamicallyCreateDenseKeys", false);
+    mapConfig.put("dynamicallyCreateDenseKeys", true);
 
     Map<String, Object> config = new HashMap<>();
     config.put("configs", mapConfig);
