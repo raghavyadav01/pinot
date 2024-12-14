@@ -21,10 +21,13 @@ package org.apache.pinot.segment.local.realtime.converter.stats;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import org.apache.pinot.segment.local.segment.index.map.MutableMapDataSource;
 import org.apache.pinot.segment.spi.MutableSegment;
 import org.apache.pinot.segment.spi.creator.ColumnStatistics;
 import org.apache.pinot.segment.spi.creator.SegmentPreIndexStatsContainer;
 import org.apache.pinot.segment.spi.datasource.DataSource;
+import org.apache.pinot.segment.spi.index.StandardIndexes;
+import org.apache.pinot.segment.spi.index.reader.MapIndexReader;
 
 
 /**
@@ -40,7 +43,12 @@ public class RealtimeSegmentStatsContainer implements SegmentPreIndexStatsContai
     // Create all column statistics
     for (String columnName : mutableSegment.getPhysicalColumnNames()) {
       DataSource dataSource = mutableSegment.getDataSource(columnName);
-      if (dataSource.getDictionary() != null) {
+      if (dataSource instanceof MutableMapDataSource) {
+        MapIndexReader indexReader = dataSource.getIndex(StandardIndexes.map());
+        _columnStatisticsMap.put(columnName, indexReader.getColumnStatistics());
+        //_columnStatisticsMap.put(columnName,
+        //    new MutableColumnStatistics(mutableSegment.getDataSource(columnName), sortedDocIds));
+      } else if (dataSource.getDictionary() != null) {
         _columnStatisticsMap
             .put(columnName, new MutableColumnStatistics(mutableSegment.getDataSource(columnName), sortedDocIds));
       } else {

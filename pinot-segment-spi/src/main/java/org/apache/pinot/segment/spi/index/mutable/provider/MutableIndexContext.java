@@ -22,11 +22,13 @@ import java.io.File;
 import java.util.Objects;
 import org.apache.pinot.segment.spi.memory.PinotDataBufferMemoryManager;
 import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.data.Schema;
 
 
 public class MutableIndexContext {
   private final int _capacity;
   private final FieldSpec _fieldSpec;
+  private final Schema _schema;
   private final int _fixedLengthBytes;
   private final boolean _hasDictionary;
   private final boolean _offHeap;
@@ -39,7 +41,7 @@ public class MutableIndexContext {
 
   public MutableIndexContext(FieldSpec fieldSpec, int fixedLengthBytes, boolean hasDictionary, String segmentName,
       PinotDataBufferMemoryManager memoryManager, int capacity, boolean offHeap, int estimatedColSize,
-      int estimatedCardinality, int avgNumMultiValues, File consumerDir) {
+      int estimatedCardinality, int avgNumMultiValues, File consumerDir, Schema schema) {
     _fieldSpec = fieldSpec;
     _fixedLengthBytes = fixedLengthBytes;
     _hasDictionary = hasDictionary;
@@ -51,6 +53,7 @@ public class MutableIndexContext {
     _estimatedCardinality = estimatedCardinality;
     _avgNumMultiValues = avgNumMultiValues;
     _consumerDir = consumerDir;
+    _schema = schema;
   }
 
   public PinotDataBufferMemoryManager getMemoryManager() {
@@ -97,6 +100,10 @@ public class MutableIndexContext {
     return _consumerDir;
   }
 
+  public Schema getSchema() {
+    return _schema;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -113,6 +120,7 @@ public class MutableIndexContext {
     private int _estimatedCardinality;
     private int _avgNumMultiValues;
     private File _consumerDir;
+    private Schema _schema;
 
     public Builder withMemoryManager(PinotDataBufferMemoryManager memoryManager) {
       _memoryManager = memoryManager;
@@ -169,10 +177,15 @@ public class MutableIndexContext {
       return this;
     }
 
+    public Builder withSchema(Schema schema) {
+      _schema = schema;
+      return this;
+    }
+
     public MutableIndexContext build() {
       return new MutableIndexContext(Objects.requireNonNull(_fieldSpec), _fixedLengthBytes, _hasDictionary,
           Objects.requireNonNull(_segmentName), Objects.requireNonNull(_memoryManager), _capacity, _offHeap,
-          _estimatedColSize, _estimatedCardinality, _avgNumMultiValues, _consumerDir);
+          _estimatedColSize, _estimatedCardinality, _avgNumMultiValues, _consumerDir, _schema);
     }
   }
 }
