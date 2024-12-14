@@ -298,7 +298,7 @@ public class MutableSegmentImpl implements MutableSegment {
               .withEstimatedCardinality(_statsHistory.getEstimatedCardinality(column))
               .withEstimatedColSize(_statsHistory.getEstimatedAvgColSize(column))
               .withAvgNumMultiValues(_statsHistory.getEstimatedAvgColSize(column))
-              .withConsumerDir(_consumerDir)
+              .withConsumerDir(_consumerDir).withSchema(_schema)
               .withFixedLengthBytes(fixedByteSize).build();
 
       // Partition info
