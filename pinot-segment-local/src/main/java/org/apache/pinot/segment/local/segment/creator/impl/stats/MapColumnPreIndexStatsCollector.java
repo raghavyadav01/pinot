@@ -49,6 +49,7 @@ import org.apache.pinot.spi.utils.builder.TableConfigBuilder;
 public class MapColumnPreIndexStatsCollector extends AbstractColumnStatisticsCollector {
   private final Object2ObjectOpenHashMap<String, AbstractColumnStatisticsCollector> _keyStats =
       new Object2ObjectOpenHashMap<>(INITIAL_HASH_SET_SIZE);
+  private final Map<String, Integer> _keyFrequencies = new Object2ObjectOpenHashMap<>(INITIAL_HASH_SET_SIZE);
   private String[] _sortedValues;
   private int _minLength = Integer.MAX_VALUE;
   private int _maxLength = 0;
@@ -61,6 +62,10 @@ public class MapColumnPreIndexStatsCollector extends AbstractColumnStatisticsCol
 
   public AbstractColumnStatisticsCollector getKeyStatistics(String key) {
     return _keyStats.get(key);
+  }
+
+  public Map<String, Integer> getAllKeyFrequencies() {
+    return _keyFrequencies;
   }
 
   @Override
@@ -77,6 +82,9 @@ public class MapColumnPreIndexStatsCollector extends AbstractColumnStatisticsCol
       for (Map.Entry<String, Object> mapValueEntry : mapValue.entrySet()) {
         String key = mapValueEntry.getKey();
         Object value = mapValueEntry.getValue();
+
+        _keyFrequencies.merge(key, 1, Integer::sum);
+
         AbstractColumnStatisticsCollector keyStats = _keyStats.get(key);
         if (keyStats == null) {
           keyStats = createKeyStatsCollector(key, value);
