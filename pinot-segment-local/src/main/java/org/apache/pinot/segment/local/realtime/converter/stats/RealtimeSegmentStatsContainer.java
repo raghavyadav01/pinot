@@ -50,8 +50,8 @@ public class RealtimeSegmentStatsContainer implements SegmentPreIndexStatsContai
         MapColumnPreIndexStatsCollector mapColumnPreIndexStatsCollector =
             new MapColumnPreIndexStatsCollector(dataSource.getColumnName(), statsCollectorConfig);
         int numDocs = dataSource.getDataSourceMetadata().getNumDocs();
-        for (int i = 0; i < numDocs; i++) {
-          mapColumnPreIndexStatsCollector.collect(reader.getMap(i, reader.createContext()));
+        for (int row = 0; row < numDocs; row++) {
+          mapColumnPreIndexStatsCollector.collect(reader.getMap(row, reader.createContext()));
         }
         mapColumnPreIndexStatsCollector.seal();
         _columnStatisticsMap.put(columnName, mapColumnPreIndexStatsCollector);
