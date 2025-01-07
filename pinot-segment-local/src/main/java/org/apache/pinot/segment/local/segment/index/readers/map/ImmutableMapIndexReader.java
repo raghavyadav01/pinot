@@ -25,7 +25,6 @@ import javax.annotation.Nullable;
 import org.apache.pinot.segment.local.segment.index.readers.forward.VarByteChunkForwardIndexReaderV4;
 import org.apache.pinot.segment.spi.ColumnMetadata;
 import org.apache.pinot.segment.spi.compression.ChunkCompressionType;
-import org.apache.pinot.segment.spi.creator.ColumnStatistics;
 import org.apache.pinot.segment.spi.index.IndexReader;
 import org.apache.pinot.segment.spi.index.IndexType;
 import org.apache.pinot.segment.spi.index.StandardIndexes;
@@ -186,11 +185,6 @@ public class ImmutableMapIndexReader implements MapIndexReader<ForwardIndexReade
         return false;
       }
     };
-  }
-
-  @Override
-  public ColumnStatistics getColumnStatistics() {
-    return null;
   }
 
   @Override

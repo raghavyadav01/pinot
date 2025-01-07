@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.apache.pinot.segment.spi.ColumnMetadata;
-import org.apache.pinot.segment.spi.creator.ColumnStatistics;
 import org.apache.pinot.segment.spi.index.IndexReader;
 import org.apache.pinot.segment.spi.index.IndexType;
 import org.apache.pinot.segment.spi.index.StandardIndexes;
@@ -142,11 +141,6 @@ public class MapIndexReaderWrapper implements org.apache.pinot.segment.spi.index
         return false;
       }
     };
-  }
-
-  @Override
-  public ColumnStatistics getColumnStatistics() {
-    return null;
   }
 
   @Override
