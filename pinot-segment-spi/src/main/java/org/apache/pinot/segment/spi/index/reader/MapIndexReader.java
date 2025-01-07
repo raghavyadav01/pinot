@@ -21,7 +21,6 @@ package org.apache.pinot.segment.spi.index.reader;
 import java.util.Map;
 import java.util.Set;
 import org.apache.pinot.segment.spi.ColumnMetadata;
-import org.apache.pinot.segment.spi.creator.ColumnStatistics;
 import org.apache.pinot.segment.spi.index.IndexReader;
 import org.apache.pinot.segment.spi.index.IndexType;
 import org.apache.pinot.spi.data.FieldSpec;
@@ -66,9 +65,4 @@ public interface MapIndexReader<T extends ForwardIndexReaderContext, R extends I
    * Returns the column metadata for the given key.
    */
   ColumnMetadata getKeyMetadata(String key);
-
-  /**
-   * Returns the column stastitics
-   */
-  ColumnStatistics getColumnStatistics();
 }
