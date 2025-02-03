@@ -573,6 +573,18 @@ public class SegmentColumnarIndexCreator implements SegmentCreator {
       properties.setProperty(Realtime.START_OFFSET, segmentZKPropsConfig.getStartOffset());
       properties.setProperty(Realtime.END_OFFSET, segmentZKPropsConfig.getEndOffset());
     }
+    // Read and merge all map metadata files if they exist
+    File[] mapFiles = _indexDir.listFiles(
+        (dir, name) -> name.endsWith(V1Constants.MetadataKeys.Column.CHILD_COLUMN_METADATA_PROP_FILENAME_SUFFIX));
+    if (mapFiles != null) {
+      for (File mapFile : mapFiles) {
+        PropertiesConfiguration mapProperties = CommonsConfigurationUtils.fromFile(mapFile);
+        // Copy all properties from map metadata file to main properties
+        mapProperties.getKeys().forEachRemaining(key -> properties.setProperty(
+            V1Constants.MetadataKeys.Column.COLUMN_PROPS_KEY_PREFIX + key + "."
+                + V1Constants.MetadataKeys.Column.CHILDCOLUMNS_PROPS_KEY_PREFIX, mapProperties.getProperty(key)));
+      }
+    }
 
     CommonsConfigurationUtils.saveToFile(properties, metadataFile);
   }

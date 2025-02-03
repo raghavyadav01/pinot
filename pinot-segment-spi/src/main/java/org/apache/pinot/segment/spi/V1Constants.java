@@ -127,8 +127,9 @@ public class V1Constants {
       public static final String DATETIME_FORMAT = "datetimeFormat";
       public static final String DATETIME_GRANULARITY = "datetimeGranularity";
       public static final String COMPLEX_CHILD_FIELD_NAMES = "complexChildFieldNames";
-
+      public static final String CHILD_COLUMN_METADATA_PROP_FILENAME_SUFFIX = "childcolumnmetadata.properties";
       public static final String COLUMN_PROPS_KEY_PREFIX = "column.";
+      public static final String CHILDCOLUMNS_PROPS_KEY_PREFIX = "childcolumns.keys";
       public static final String SCHEMA_MAX_LENGTH = "schemaMaxLength";
       public static final String SCHEMA_MAX_LENGTH_EXCEED_STRATEGY = "schemaMaxLengthExceedStrategy";
 

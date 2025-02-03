@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import org.apache.pinot.segment.local.segment.index.column.MapColumnIndexContainer;
 import org.apache.pinot.segment.local.segment.index.column.PhysicalColumnIndexContainer;
 import org.apache.pinot.segment.local.segment.index.converter.SegmentFormatConverterFactory;
 import org.apache.pinot.segment.local.segment.index.loader.IndexLoadingConfig;
@@ -245,9 +246,16 @@ public class ImmutableSegmentLoader {
     SegmentDirectory.Reader segmentReader = segmentDirectory.createReader();
     Map<String, ColumnIndexContainer> indexContainerMap = new HashMap<>();
     for (Map.Entry<String, ColumnMetadata> entry : columnMetadataMap.entrySet()) {
-      // FIXME: text-index only works with local SegmentDirectory
-      indexContainerMap.put(entry.getKey(),
-          new PhysicalColumnIndexContainer(segmentReader, entry.getValue(), indexLoadingConfig));
+      //TODO: check if if condition is robust?
+      if (entry.getValue().getFieldSpec().getDataType() == FieldSpec.DataType.MAP && !entry.getValue().getChildColumns()
+          .isEmpty()) {
+        indexContainerMap.put(entry.getKey(),
+            new MapColumnIndexContainer(segmentReader, entry.getValue(), indexLoadingConfig));
+      } else {
+        // FIXME: text-index only works with local SegmentDirectory
+        indexContainerMap.put(entry.getKey(),
+            new PhysicalColumnIndexContainer(segmentReader, entry.getValue(), indexLoadingConfig));
+      }
     }
 
     // Instantiate virtual columns
