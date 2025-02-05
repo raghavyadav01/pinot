@@ -44,7 +44,6 @@ public class ImmutableMapDataSource extends BaseMapDataSource {
   public ImmutableMapDataSource(ColumnMetadata columnMetadata, ColumnIndexContainer columnIndexContainer) {
     super(new ImmutableMapDataSourceMetadata(columnMetadata), columnIndexContainer);
     MapIndexReader mapIndexReader = null;
-    // TODO how can we make below if condition robust?
     if (!columnMetadata.getChildColumns().isEmpty()) {
       MapColumnIndexContainer mapColumnIndexContainer = (MapColumnIndexContainer) columnIndexContainer;
       mapIndexReader = mapColumnIndexContainer.getMapIndexReader();

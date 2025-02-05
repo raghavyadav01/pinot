@@ -161,10 +161,12 @@ public class SegmentV1V2ToV3FormatConverter implements SegmentFormatConverter {
           }
           //Map Columns have virtual child columns where indexes are created per keys
           //and index_map contains the mapping of pinot buffer to these keys
-          for (Object subcolumn : v2Metadata.getColumnMetadataMap().get(column).getChildColumns()) {
+          for (Object childColumn : v2Metadata.getColumnMetadataMap().get(column).getChildColumns()) {
             for (IndexType<?, ?, ?> indexType : IndexService.getInstance().getAllIndexes()) {
               if (indexType != StandardIndexes.text() && indexType != StandardIndexes.vector()) {
-                copyIndexIfExists(v2DataReader, v3DataWriter, column + "." + (String) subcolumn, indexType);
+                copyIndexIfExists(v2DataReader, v3DataWriter,
+                    column + V1Constants.MetadataKeys.Column.CHILD_COLUMN_METADATA_KEY_SEPARATOR + childColumn,
+                    indexType);
               }
             }
           }

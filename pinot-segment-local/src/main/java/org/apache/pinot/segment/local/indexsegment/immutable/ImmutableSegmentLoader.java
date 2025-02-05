@@ -250,7 +250,6 @@ public class ImmutableSegmentLoader {
         segmentMetadata.getChildColumnMetadataMap();
 
     for (Map.Entry<String, ColumnMetadata> entry : columnMetadataMap.entrySet()) {
-      //TODO: check if if condition is robust?
       if (entry.getValue().getFieldSpec().getDataType() == FieldSpec.DataType.MAP && !entry.getValue().getChildColumns()
           .isEmpty()) {
         indexContainerMap.put(entry.getKey(),

@@ -245,8 +245,8 @@ public class SegmentMetadataImpl implements SegmentMetadata {
           .isEmpty()) {
         TreeMap<String, ColumnMetadata> childColumnMetadataMap = new TreeMap<>();
         for (Object childColumn : columnMetadata.getChildColumns()) {
-          ColumnMetadata childColumnMetadata =
-              ColumnMetadataImpl.fromPropertiesConfiguration(column + "." + (String) childColumn,
+          ColumnMetadata childColumnMetadata = ColumnMetadataImpl.fromPropertiesConfiguration(
+              column + V1Constants.MetadataKeys.Column.CHILD_COLUMN_METADATA_KEY_SEPARATOR + (String) childColumn,
                   segmentMetadataPropertiesConfiguration);
           childColumnMetadataMap.put((String) childColumn, childColumnMetadata);
         }

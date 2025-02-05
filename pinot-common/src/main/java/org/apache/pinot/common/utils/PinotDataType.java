@@ -823,7 +823,6 @@ public enum PinotDataType {
       switch (sourceType) {
         case STRING:
           try {
-            // Convert JSON string to Map
             return JsonUtils.stringToObject(value.toString(), Map.class);
           } catch (Exception e) {
             throw new RuntimeException("Unable to convert String to Map. Input value: " + value, e);
