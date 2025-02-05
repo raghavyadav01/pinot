@@ -20,6 +20,7 @@ package org.apache.pinot.segment.local.segment.index.column;
 
 import com.google.common.base.Preconditions;
 import java.io.IOException;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 import org.apache.pinot.segment.local.segment.index.loader.IndexLoadingConfig;
 import org.apache.pinot.segment.spi.ColumnMetadata;
@@ -41,7 +42,7 @@ public class MapColumnIndexContainer implements ColumnIndexContainer {
   private final MapIndexReader _mapIndexReader;
 
   public MapColumnIndexContainer(SegmentDirectory.Reader segmentReader, ColumnMetadata metadata,
-      IndexLoadingConfig indexLoadingConfig)
+      IndexLoadingConfig indexLoadingConfig, TreeMap<String, ColumnMetadata> childColumnMetadataMap)
       throws IOException {
     String columnName = metadata.getColumnName();
 
@@ -52,8 +53,8 @@ public class MapColumnIndexContainer implements ColumnIndexContainer {
         String className = fwdIdxConfig.getMapEncodingConfigs().get(MAP_INDEX_READER_CLASS_NAME).toString();
         Preconditions.checkNotNull(className, "MapIndexReader class name must be provided");
         _mapIndexReader = (MapIndexReader) Class.forName(className)
-            .getConstructor(SegmentDirectory.Reader.class, ColumnMetadata.class, IndexLoadingConfig.class)
-            .newInstance(segmentReader, metadata, indexLoadingConfig);
+            .getConstructor(SegmentDirectory.Reader.class, ColumnMetadata.class, IndexLoadingConfig.class,
+                TreeMap.class).newInstance(segmentReader, metadata, indexLoadingConfig, childColumnMetadataMap);
       } catch (Exception e) {
         throw new RuntimeException("Failed to create MapIndexReader", e);
       }
