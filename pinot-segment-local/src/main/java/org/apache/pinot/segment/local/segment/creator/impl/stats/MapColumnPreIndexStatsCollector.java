@@ -25,6 +25,7 @@ import org.apache.pinot.common.utils.PinotDataType;
 import org.apache.pinot.segment.spi.creator.StatsCollectorConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
+import org.apache.pinot.spi.data.ComplexFieldSpec;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.data.Schema;
@@ -54,10 +55,12 @@ public class MapColumnPreIndexStatsCollector extends AbstractColumnStatisticsCol
   private int _minLength = Integer.MAX_VALUE;
   private int _maxLength = 0;
   private boolean _sealed = false;
+  private ComplexFieldSpec _colFieldSpec;
 
   public MapColumnPreIndexStatsCollector(String column, StatsCollectorConfig statsCollectorConfig) {
     super(column, statsCollectorConfig);
     _sorted = false;
+    _colFieldSpec = (ComplexFieldSpec) statsCollectorConfig.getFieldSpecForColumn(column);
   }
 
   public AbstractColumnStatisticsCollector getKeyStatistics(String key) {
@@ -148,6 +151,13 @@ public class MapColumnPreIndexStatsCollector extends AbstractColumnStatisticsCol
   @Override
   public void seal() {
     if (!_sealed) {
+      //All the keys which have appeared less than total docs insert default null Value in unique values
+      FieldSpec valueFieldSpec = _colFieldSpec.getChildFieldSpec("value");
+      for (Map.Entry<String, Integer> entry : _keyFrequencies.entrySet()) {
+        if (entry.getValue() < _totalNumberOfEntries) {
+          _keyStats.get(entry.getKey()).collect(valueFieldSpec.getDefaultNullValue());
+        }
+      }
       _sortedValues = _keyStats.keySet().toArray(new String[0]);
       Arrays.sort(_sortedValues);
 
