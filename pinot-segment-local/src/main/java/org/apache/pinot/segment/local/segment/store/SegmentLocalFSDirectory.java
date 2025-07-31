@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 import org.apache.commons.configuration2.ex.ConfigurationException;
 import org.apache.commons.io.FileUtils;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.pinot.segment.spi.creator.SegmentVersion;
 import org.apache.pinot.segment.spi.index.IndexType;
 import org.apache.pinot.segment.spi.index.metadata.SegmentMetadataImpl;
@@ -240,6 +241,12 @@ public class SegmentLocalFSDirectory extends SegmentDirectory {
   @Override
   public String toString() {
     return _segmentDirectory.toString();
+  }
+
+  @Override
+  public Object getSegmentDirectory()
+      throws IOException {
+    return FSDirectory.open(_segmentDirectory.toPath());
   }
 
   protected void load()

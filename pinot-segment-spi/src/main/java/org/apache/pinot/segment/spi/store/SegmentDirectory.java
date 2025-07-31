@@ -165,6 +165,14 @@ public abstract class SegmentDirectory implements Closeable {
   public abstract void setTier(@Nullable String tier);
 
   /**
+   * Get Lucene Directory for text index operations
+   * @return Lucene Directory for the text index
+   * @throws IOException if directory cannot be created
+   */
+  public abstract Object getSegmentDirectory()
+      throws IOException;
+
+  /**
    * Reader for columnar index buffers from segment directory
    */
   public abstract class Reader implements Closeable {

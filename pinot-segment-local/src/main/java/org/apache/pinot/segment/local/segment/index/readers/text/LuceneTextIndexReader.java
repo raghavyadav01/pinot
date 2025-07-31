@@ -73,14 +73,20 @@ public class LuceneTextIndexReader implements TextIndexReader {
   private final Analyzer _analyzer;
   private boolean _useANDForMultiTermQueries = false;
   private final String _queryParserClass;
-  private Constructor<QueryParserBase> _queryParserClassConstructor;
+  private final Constructor<QueryParserBase> _queryParserClassConstructor;
   private boolean _enablePrefixSuffixMatchingInPhraseQueries = false;
 
-  public LuceneTextIndexReader(String column, File indexDir, int numDocs, TextIndexConfig config) {
+  public LuceneTextIndexReader(String column, File indexDir, int numDocs, TextIndexConfig config)
+      throws IOException {
+    this(column, indexDir, numDocs, config,
+        FSDirectory.open(getTextIndexFile(indexDir, column).getParentFile().toPath()));
+  }
+
+  public LuceneTextIndexReader(String column, File indexDir, int numDocs, TextIndexConfig config, Object textIndexDir) {
     _column = column;
     try {
-      File indexFile = getTextIndexFile(indexDir);
-      _indexDirectory = FSDirectory.open(indexFile.toPath());
+      File indexFile = getTextIndexFile(indexDir, _column);
+      _indexDirectory = (Directory) textIndexDir;
       _indexReader = DirectoryReader.open(_indexDirectory);
       _indexSearcher = new IndexSearcher(_indexReader);
       if (!config.isEnableQueryCache()) {
@@ -126,7 +132,8 @@ public class LuceneTextIndexReader implements TextIndexReader {
    * @param numDocs  number of documents in the segment
    */
   public LuceneTextIndexReader(String column, File indexDir, int numDocs,
-      @Nullable Map<String, String> textIndexProperties) {
+      @Nullable Map<String, String> textIndexProperties)
+      throws IOException {
     this(column, indexDir, numDocs,
         new TextIndexConfigBuilder(FSTType.LUCENE).withProperties(textIndexProperties).build());
   }
@@ -143,13 +150,14 @@ public class LuceneTextIndexReader implements TextIndexReader {
    * whatever the version of segment is on disk.
    *
    * @param segmentIndexDir top-level segment index directory
+   * @param column column name
    * @return text index file
    */
-  private File getTextIndexFile(File segmentIndexDir) {
+  private static File getTextIndexFile(File segmentIndexDir, String column) {
     // will return null if file does not exist
-    File file = SegmentDirectoryPaths.findTextIndexIndexFile(segmentIndexDir, _column);
+    File file = SegmentDirectoryPaths.findTextIndexIndexFile(segmentIndexDir, column);
     if (file == null) {
-      throw new IllegalStateException("Failed to find text index file for column: " + _column);
+      throw new IllegalStateException("Failed to find text index file for column: " + column);
     }
     return file;
   }
