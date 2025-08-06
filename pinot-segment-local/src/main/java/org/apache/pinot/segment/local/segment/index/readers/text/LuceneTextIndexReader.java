@@ -80,7 +80,7 @@ public class LuceneTextIndexReader implements TextIndexReader {
     _column = column;
     try {
       File indexFile = getTextIndexFile(indexDir);
-      _indexDirectory = FSDirectory.open(indexFile.toPath());
+      _indexDirectory = LuceneDirectoryFactoryRegistry.open(indexFile.toPath());
       _indexReader = DirectoryReader.open(_indexDirectory);
       _indexSearcher = new IndexSearcher(_indexReader);
       if (!config.isEnableQueryCache()) {
