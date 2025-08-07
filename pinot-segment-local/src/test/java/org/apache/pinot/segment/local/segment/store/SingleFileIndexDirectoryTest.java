@@ -44,6 +44,7 @@ import org.apache.pinot.segment.spi.index.TextIndexConfig;
 import org.apache.pinot.segment.spi.index.metadata.SegmentMetadataImpl;
 import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
 import org.apache.pinot.segment.spi.store.ColumnIndexDirectory;
+import org.apache.pinot.segment.spi.store.SegmentDirectory;
 import org.apache.pinot.spi.utils.ReadMode;
 import org.apache.pinot.util.TestUtils;
 import org.mockito.Mockito;
@@ -240,6 +241,7 @@ public class SingleFileIndexDirectoryTest implements PinotBuffersAfterMethodChec
       throws IOException, ConfigurationException {
     TextIndexConfig config = new TextIndexConfig(false, null, null, false, false, null, null, true, 500, null, null,
         null, null, false, false, 0, false, null);
+    SegmentDirectory segmentDirectory = new SegmentLocalFSDirectory(TEMP_DIR);
     try (SingleFileIndexDirectory sfd = new SingleFileIndexDirectory(TEMP_DIR, _segmentMetadata, ReadMode.mmap);
         LuceneTextIndexCreator fooCreator = new LuceneTextIndexCreator("foo", TEMP_DIR, true, false, null, null,
             config);
@@ -263,10 +265,10 @@ public class SingleFileIndexDirectoryTest implements PinotBuffersAfterMethodChec
     try (SingleFileIndexDirectory sfd = new SingleFileIndexDirectory(TEMP_DIR, _segmentMetadata, ReadMode.mmap)) {
       assertTrue(sfd.hasIndexFor("foo", StandardIndexes.text()));
       // Use TextIndex once to trigger the creation of mapping files.
-      try (LuceneTextIndexReader fooReader = new LuceneTextIndexReader("foo", TEMP_DIR, 1, new HashMap<>())) {
+      try (LuceneTextIndexReader fooReader = new LuceneTextIndexReader("foo", segmentDirectory, 1, new HashMap<>())) {
         fooReader.getDocIds("clean");
       }
-      try (LuceneTextIndexReader barReader = new LuceneTextIndexReader("bar", TEMP_DIR, 3, new HashMap<>())) {
+      try (LuceneTextIndexReader barReader = new LuceneTextIndexReader("bar", segmentDirectory, 3, new HashMap<>())) {
         barReader.getDocIds("retain hold");
       }
 
@@ -295,7 +297,7 @@ public class SingleFileIndexDirectoryTest implements PinotBuffersAfterMethodChec
       assertTrue(sfd.hasIndexFor("bar", StandardIndexes.text()));
 
       // Check if the text index still work.
-      try (LuceneTextIndexReader barReader = new LuceneTextIndexReader("bar", TEMP_DIR, 3, new HashMap<>())) {
+      try (LuceneTextIndexReader barReader = new LuceneTextIndexReader("bar", segmentDirectory, 3, new HashMap<>())) {
         MutableRoaringBitmap ids = barReader.getDocIds("retain hold");
         assertTrue(ids.contains(0));
         assertTrue(ids.contains(2));

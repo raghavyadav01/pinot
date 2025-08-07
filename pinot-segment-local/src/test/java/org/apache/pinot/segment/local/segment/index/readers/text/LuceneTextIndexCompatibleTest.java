@@ -21,6 +21,9 @@ package org.apache.pinot.segment.local.segment.index.readers.text;
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.io.IOException;
+import org.apache.commons.configuration2.ex.ConfigurationException;
+import org.apache.pinot.segment.local.segment.store.SegmentLocalFSDirectory;
+import org.apache.pinot.segment.spi.store.SegmentDirectory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -29,10 +32,12 @@ public class LuceneTextIndexCompatibleTest {
 
   @Test
   public void testLucene80IndexReader()
-      throws IOException {
+      throws IOException, ConfigurationException {
     File indexPath =
         new File(LuceneTextIndexCompatibleTest.class.getClassLoader().getResource("data/lucene_80_index").getPath());
-    try (LuceneTextIndexReader lucene80Index = new LuceneTextIndexReader("Text", indexPath, 1000, ImmutableMap.of())) {
+    SegmentDirectory segmentDirectory = new SegmentLocalFSDirectory(indexPath);
+    try (LuceneTextIndexReader lucene80Index = new LuceneTextIndexReader("Text", segmentDirectory, 1000,
+        ImmutableMap.of())) {
       Assert.assertNotNull(lucene80Index);
     }
   }

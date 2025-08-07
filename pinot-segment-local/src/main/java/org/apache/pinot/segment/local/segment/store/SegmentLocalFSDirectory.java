@@ -32,6 +32,7 @@ import org.apache.commons.configuration2.ex.ConfigurationException;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.pinot.segment.local.indexsegment.immutable.ImmutableSegmentLoader;
 import org.apache.pinot.segment.spi.creator.SegmentVersion;
 import org.apache.pinot.segment.spi.index.IndexType;
 import org.apache.pinot.segment.spi.index.metadata.SegmentMetadataImpl;
@@ -169,7 +170,7 @@ public class SegmentLocalFSDirectory extends SegmentDirectory {
 
   @Override
   public Path getPath() {
-    return _segmentDirectory.toPath();
+    return _segmentDirectory != null ? _segmentDirectory.toPath() : _indexDir.toPath();
   }
 
   @Override
@@ -224,14 +225,42 @@ public class SegmentLocalFSDirectory extends SegmentDirectory {
     return TextIndexUtils.getFSTTypeOfIndex(_segmentDirectory, columnName);
   }
 
+  /**
+   * CASE 1: If IndexLoadingConfig specifies a segment version to load and if it is different then
+   * the on-disk version of the segment, then {@link ImmutableSegmentLoader}
+   * will take care of up-converting the on-disk segment to v3 before load. The converter
+   * already has support for converting v1 text index to v3. So the text index can be
+   * loaded from segmentIndexDir/v3/ since v3 sub-directory would have already been created
+   *
+   * CASE 2: However, if IndexLoadingConfig doesn't specify the segment version to load or if the specified
+   * version is same as the on-disk version of the segment, then ImmutableSegmentLoader will load
+   * whatever the version of segment is on disk.
+   *
+   * @param column
+   * @return text index file
+   */
   @Override
-  public Directory getLuceneTextIndexDirectory(String columnName)
-      throws IOException {
-    File textIndexFile = SegmentDirectoryPaths.findTextIndexIndexFile(_segmentDirectory, columnName);
-    if (textIndexFile == null) {
-      throw new IOException("Text index directory not found for column: " + columnName);
+  public File getTextIndexDir(String column) {
+    File textIndexDir = SegmentDirectoryPaths.findTextIndexIndexFile(getPath().toFile(), column);
+    if (textIndexDir == null) {
+      throw new IllegalStateException("Failed to find text index file for column: " + column);
     }
-    return FSDirectory.open(textIndexFile.toPath());
+    return textIndexDir;
+  }
+
+  @Override
+  public Directory getLuceneDirectory(String column)
+      throws IOException {
+    File textIndexDir = SegmentDirectoryPaths.findTextIndexIndexFile(getPath().toFile(), column);
+    if (textIndexDir == null) {
+      throw new IllegalStateException("Failed to find text index file for column: " + column);
+    }
+    return FSDirectory.open(textIndexDir.toPath());
+  }
+
+  @Override
+  public File getFile(File parentFile, String fileName) {
+    return new File(parentFile, fileName);
   }
 
   public Reader createReader()
@@ -257,7 +286,7 @@ public class SegmentLocalFSDirectory extends SegmentDirectory {
 
   @Override
   public String toString() {
-    return _segmentDirectory.toString();
+    return _segmentDirectory != null ? _segmentDirectory.toString() : _indexDir.toString();
   }
 
   protected void load()

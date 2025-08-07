@@ -128,13 +128,27 @@ public abstract class SegmentDirectory implements Closeable {
   public abstract FSTType getFSTTypeOfIndex(String columnName);
 
   /**
+   * @param column
+   * @return text index dir
+   */
+  public abstract File getTextIndexDir(String column);
+
+  /**
    * Get the Lucene text index directory for the given column.
    * @param columnName the column name
    * @return the Lucene Directory for the text index
    * @throws IOException if the directory cannot be opened
    */
-  public abstract Directory getLuceneTextIndexDirectory(String columnName)
+  public abstract Directory getLuceneDirectory(String columnName)
       throws IOException;
+
+  /**
+   * Get a child file from the given parent file.
+   * @param parentFile the parent file
+   * @param fileName the name of the child file
+   * @return the child file with the appropriate type (local File or S3File)
+   */
+  public abstract File getFile(File parentFile, String fileName);
 
   /**
    * This is a hint to the segment directory, to begin prefetching buffers for given context.

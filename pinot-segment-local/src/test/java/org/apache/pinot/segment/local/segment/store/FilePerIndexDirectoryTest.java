@@ -37,6 +37,7 @@ import org.apache.pinot.segment.spi.index.TextIndexConfig;
 import org.apache.pinot.segment.spi.index.metadata.SegmentMetadataImpl;
 import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
 import org.apache.pinot.segment.spi.store.ColumnIndexDirectory;
+import org.apache.pinot.segment.spi.store.SegmentDirectory;
 import org.apache.pinot.spi.utils.ReadMode;
 import org.apache.pinot.util.TestUtils;
 import org.roaringbitmap.buffer.MutableRoaringBitmap;
@@ -225,13 +226,14 @@ public class FilePerIndexDirectoryTest implements PinotBuffersAfterMethodCheckRu
     }
 
     // Remove the Text index to trigger cleanup.
+    SegmentDirectory segmentDirectory = new SegmentLocalFSDirectory(TEMP_DIR);
     try (FilePerIndexDirectory fpi = new FilePerIndexDirectory(TEMP_DIR, _segmentMetadata, ReadMode.mmap)) {
       assertTrue(fpi.hasIndexFor("foo", StandardIndexes.text()));
       // Use TextIndex once to trigger the creation of mapping files.
-      try (LuceneTextIndexReader fooReader = new LuceneTextIndexReader("foo", TEMP_DIR, 1, new HashMap<>())) {
+      try (LuceneTextIndexReader fooReader = new LuceneTextIndexReader("foo", segmentDirectory, 1, new HashMap<>())) {
         fooReader.getDocIds("clean");
       }
-      try (LuceneTextIndexReader barReader = new LuceneTextIndexReader("bar", TEMP_DIR, 3, new HashMap<>())) {
+      try (LuceneTextIndexReader barReader = new LuceneTextIndexReader("bar", segmentDirectory, 3, new HashMap<>())) {
         barReader.getDocIds("retain hold");
       }
 
@@ -260,7 +262,7 @@ public class FilePerIndexDirectoryTest implements PinotBuffersAfterMethodCheckRu
       assertTrue(fpi.hasIndexFor("bar", StandardIndexes.text()));
 
       // Check if the text index still work.
-      try (LuceneTextIndexReader barReader = new LuceneTextIndexReader("bar", TEMP_DIR, 3, new HashMap<>())) {
+      try (LuceneTextIndexReader barReader = new LuceneTextIndexReader("bar", segmentDirectory, 3, new HashMap<>())) {
         MutableRoaringBitmap ids = barReader.getDocIds("retain hold");
         assertTrue(ids.contains(0));
         assertTrue(ids.contains(2));
