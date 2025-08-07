@@ -26,10 +26,12 @@ import java.nio.file.Path;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.apache.commons.configuration2.ex.ConfigurationException;
+import org.apache.lucene.store.Directory;
 import org.apache.pinot.segment.spi.FetchContext;
 import org.apache.pinot.segment.spi.index.IndexType;
 import org.apache.pinot.segment.spi.index.metadata.SegmentMetadataImpl;
 import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
+import org.apache.pinot.spi.config.table.FSTType;
 
 
 /**
@@ -117,6 +119,22 @@ public abstract class SegmentDirectory implements Closeable {
    * @return a set of columns with such index type.
    */
   public abstract Set<String> getColumnsWithIndex(IndexType<?, ?, ?> type);
+
+  /**
+   * Get the FST type of text index for the given column.
+   * @param columnName the column name
+   * @return the FST type of the text index, or null if no text index exists
+   */
+  public abstract FSTType getFSTTypeOfIndex(String columnName);
+
+  /**
+   * Get the Lucene text index directory for the given column.
+   * @param columnName the column name
+   * @return the Lucene Directory for the text index
+   * @throws IOException if the directory cannot be opened
+   */
+  public abstract Directory getLuceneTextIndexDirectory(String columnName)
+      throws IOException;
 
   /**
    * This is a hint to the segment directory, to begin prefetching buffers for given context.

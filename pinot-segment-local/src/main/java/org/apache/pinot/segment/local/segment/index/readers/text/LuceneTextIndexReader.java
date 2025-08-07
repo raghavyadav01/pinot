@@ -50,6 +50,7 @@ import org.apache.pinot.segment.spi.index.TextIndexConfig;
 import org.apache.pinot.segment.spi.index.TextIndexConfig.DocIdTranslatorMode;
 import org.apache.pinot.segment.spi.index.reader.TextIndexReader;
 import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
+import org.apache.pinot.segment.spi.store.SegmentDirectory;
 import org.apache.pinot.segment.spi.store.SegmentDirectoryPaths;
 import org.apache.pinot.spi.config.table.FSTType;
 import org.roaringbitmap.buffer.ImmutableRoaringBitmap;
@@ -76,11 +77,27 @@ public class LuceneTextIndexReader implements TextIndexReader {
   private Constructor<QueryParserBase> _queryParserClassConstructor;
   private boolean _enablePrefixSuffixMatchingInPhraseQueries = false;
 
-  public LuceneTextIndexReader(String column, File indexDir, int numDocs, TextIndexConfig config) {
+  public LuceneTextIndexReader(String column, File indexDir, int numDocs, TextIndexConfig config)
+      throws IOException {
+    this(column, indexDir, getTextIndexFile(indexDir, column),
+        FSDirectory.open(getTextIndexFile(indexDir, column).toPath()), numDocs, config);
+  }
+
+  public LuceneTextIndexReader(String column, SegmentDirectory segmentDir, int numDocs, TextIndexConfig config)
+      throws IOException {
+    this(column, segmentDir.getPath().toFile(), getTextIndexFile(segmentDir.getPath().toFile(), column),
+        segmentDir.getLuceneTextIndexDirectory(column), numDocs, config);
+  }
+
+  /**
+   * Constructor for backward compatibility that takes File indexDir.
+   * This constructor uses FSDirectory for local file system.
+   */
+  public LuceneTextIndexReader(String column, File indexDir, File textIndexFile, Directory indexDirectory, int numDocs,
+      TextIndexConfig config) {
     _column = column;
     try {
-      File indexFile = getTextIndexFile(indexDir);
-      _indexDirectory = LuceneDirectoryFactoryRegistry.open(indexFile.toPath());
+      _indexDirectory = indexDirectory;
       _indexReader = DirectoryReader.open(_indexDirectory);
       _indexSearcher = new IndexSearcher(_indexReader);
       if (!config.isEnableQueryCache()) {
@@ -97,12 +114,13 @@ public class LuceneTextIndexReader implements TextIndexReader {
       // TODO: consider using a threshold of num docs per segment to decide between building
       // mapping file upfront on segment load v/s on-the-fly during query processing
       // If the properties file exists, use the analyzer properties and query parser class from the properties file
-      File propertiesFile = new File(indexFile, V1Constants.Indexes.LUCENE_TEXT_INDEX_PROPERTIES_FILE);
+      //change this to handle S3 case
+      File propertiesFile = new File(textIndexFile, V1Constants.Indexes.LUCENE_TEXT_INDEX_PROPERTIES_FILE);
       if (propertiesFile.exists()) {
         config = TextIndexUtils.getUpdatedConfigFromPropertiesFile(propertiesFile, config);
       }
 
-      _docIdTranslator = prepareDocIdTranslator(indexDir, _column, numDocs, _indexSearcher, config, indexFile);
+      _docIdTranslator = prepareDocIdTranslator(indexDir, _column, numDocs, _indexSearcher, config, textIndexFile);
       _analyzer = TextIndexUtils.getAnalyzer(config);
       _queryParserClass = config.getLuceneQueryParserClass();
       _queryParserClassConstructor =
@@ -122,11 +140,27 @@ public class LuceneTextIndexReader implements TextIndexReader {
    * similar to how it is done for other types of indexes.
    *
    * @param column   column name
+   * @param segmentDir segment directory
+   * @param numDocs  number of documents in the segment
+   */
+  public LuceneTextIndexReader(String column, SegmentDirectory segmentDir, int numDocs,
+      @Nullable Map<String, String> textIndexProperties)
+      throws IOException {
+    this(column, segmentDir, numDocs,
+        new TextIndexConfigBuilder(FSTType.LUCENE).withProperties(textIndexProperties).build());
+  }
+
+  /**
+   * Constructor for backward compatibility that takes File indexDir.
+   * This constructor uses FSDirectory for local file system.
+   *
+   * @param column   column name
    * @param indexDir segment index directory
    * @param numDocs  number of documents in the segment
    */
   public LuceneTextIndexReader(String column, File indexDir, int numDocs,
-      @Nullable Map<String, String> textIndexProperties) {
+      @Nullable Map<String, String> textIndexProperties)
+      throws IOException {
     this(column, indexDir, numDocs,
         new TextIndexConfigBuilder(FSTType.LUCENE).withProperties(textIndexProperties).build());
   }
@@ -145,11 +179,11 @@ public class LuceneTextIndexReader implements TextIndexReader {
    * @param segmentIndexDir top-level segment index directory
    * @return text index file
    */
-  private File getTextIndexFile(File segmentIndexDir) {
+  private static File getTextIndexFile(File segmentIndexDir, String column) {
     // will return null if file does not exist
-    File file = SegmentDirectoryPaths.findTextIndexIndexFile(segmentIndexDir, _column);
+    File file = SegmentDirectoryPaths.findTextIndexIndexFile(segmentIndexDir, column);
     if (file == null) {
-      throw new IllegalStateException("Failed to find text index file for column: " + _column);
+      throw new IllegalStateException("Failed to find text index file for column: " + column);
     }
     return file;
   }

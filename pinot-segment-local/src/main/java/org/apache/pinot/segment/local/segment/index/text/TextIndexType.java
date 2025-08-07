@@ -21,7 +21,6 @@ package org.apache.pinot.segment.local.segment.index.text;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -149,16 +148,16 @@ public class TextIndexType extends AbstractIndexType<TextIndexConfig, TextIndexR
     @Override
     public TextIndexReader createIndexReader(SegmentDirectory.Reader segmentReader, FieldIndexConfigs fieldIndexConfigs,
         ColumnMetadata metadata)
-        throws IndexReaderConstraintException {
+        throws IndexReaderConstraintException, IOException {
       if (metadata.getDataType() != FieldSpec.DataType.STRING) {
         throw new IndexReaderConstraintException(metadata.getColumnName(), StandardIndexes.text(),
             "Text index is currently only supported on STRING type columns");
       }
-      File segmentDir = segmentReader.toSegmentDirectory().getPath().toFile();
-      FSTType textIndexFSTType = TextIndexUtils.getFSTTypeOfIndex(segmentDir, metadata.getColumnName());
+      SegmentDirectory segmentDir = segmentReader.toSegmentDirectory();
+      FSTType textIndexFSTType = segmentDir.getFSTTypeOfIndex(metadata.getColumnName());
       if (textIndexFSTType == FSTType.NATIVE) {
         // TODO: Support loading native text index from a PinotDataBuffer
-        return new NativeTextIndexReader(metadata.getColumnName(), segmentDir);
+        return new NativeTextIndexReader(metadata.getColumnName(), segmentDir.getPath().toFile());
       }
       TextIndexConfig indexConfig = fieldIndexConfigs.getConfig(StandardIndexes.text());
       return new LuceneTextIndexReader(metadata.getColumnName(), segmentDir, metadata.getTotalDocs(), indexConfig);

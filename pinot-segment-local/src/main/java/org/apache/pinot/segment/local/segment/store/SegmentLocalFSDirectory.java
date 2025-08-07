@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 import org.apache.commons.configuration2.ex.ConfigurationException;
 import org.apache.commons.io.FileUtils;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.pinot.segment.spi.creator.SegmentVersion;
 import org.apache.pinot.segment.spi.index.IndexType;
 import org.apache.pinot.segment.spi.index.metadata.SegmentMetadataImpl;
@@ -38,6 +40,7 @@ import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
 import org.apache.pinot.segment.spi.store.ColumnIndexDirectory;
 import org.apache.pinot.segment.spi.store.SegmentDirectory;
 import org.apache.pinot.segment.spi.store.SegmentDirectoryPaths;
+import org.apache.pinot.spi.config.table.FSTType;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.ReadMode;
 import org.slf4j.Logger;
@@ -214,6 +217,21 @@ public class SegmentLocalFSDirectory extends SegmentDirectory {
       return Collections.emptySet();
     }
     return _columnIndexDirectory.getColumnsWithIndex(type);
+  }
+
+  @Override
+  public FSTType getFSTTypeOfIndex(String columnName) {
+    return TextIndexUtils.getFSTTypeOfIndex(_segmentDirectory, columnName);
+  }
+
+  @Override
+  public Directory getLuceneTextIndexDirectory(String columnName)
+      throws IOException {
+    File textIndexFile = SegmentDirectoryPaths.findTextIndexIndexFile(_segmentDirectory, columnName);
+    if (textIndexFile == null) {
+      throw new IOException("Text index directory not found for column: " + columnName);
+    }
+    return FSDirectory.open(textIndexFile.toPath());
   }
 
   public Reader createReader()
