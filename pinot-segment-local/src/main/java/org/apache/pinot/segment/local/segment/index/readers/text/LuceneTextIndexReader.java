@@ -102,6 +102,14 @@ public class LuceneTextIndexReader implements TextIndexReader {
       // If the properties file exists, use the analyzer properties and query parser class from the properties file
       if (propertiesFile != null && propertiesFile.exists()) {
         config = TextIndexUtils.getUpdatedConfigFromPropertiesFile(propertiesFile, config);
+        /*
+         // For testing: hardcoded properties content
+        String propertiesContent = "luceneAnalyzerClass = org.apache.lucene.analysis.standard.StandardAnalyzer\n"
+            + "luceneQueryParserClass = org.apache.lucene.queryparser.classic.QueryParser\n";
+        try (InputStream inputStream = new ByteArrayInputStream(propertiesContent.getBytes(StandardCharsets.UTF_8))) {
+          config = TextIndexUtils.getUpdatedConfigFromPropertiesInputStream(inputStream, config);
+        }
+         */
       }
 
       _docIdTranslator = prepareDocIdTranslator(textIndexDir, _column, numDocs, _indexSearcher, config, textIndexDir);
@@ -220,6 +228,7 @@ public class LuceneTextIndexReader implements TextIndexReader {
   DocIdTranslator prepareDocIdTranslator(File segmentIndexDir, String column, int numDocs,
       IndexSearcher indexSearcher, TextIndexConfig config, File indexDir)
       throws IOException {
+    //TODO: raghav skip docIdtranslator
     if (config.getDocIdTranslatorMode() == DocIdTranslatorMode.Skip) {
       LOGGER.debug("Using no-op doc id translator");
       return NoOpDocIdTranslator.INSTANCE;
