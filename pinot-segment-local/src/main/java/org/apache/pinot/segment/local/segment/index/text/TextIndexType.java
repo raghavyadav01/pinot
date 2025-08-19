@@ -31,7 +31,6 @@ import org.apache.pinot.segment.local.realtime.impl.invertedindex.RealtimeLucene
 import org.apache.pinot.segment.local.segment.creator.impl.text.LuceneTextIndexCreator;
 import org.apache.pinot.segment.local.segment.creator.impl.text.NativeTextIndexCreator;
 import org.apache.pinot.segment.local.segment.index.loader.invertedindex.TextIndexHandler;
-import org.apache.pinot.segment.local.segment.index.readers.text.LuceneTextIndexReader;
 import org.apache.pinot.segment.local.segment.index.readers.text.NativeTextIndexReader;
 import org.apache.pinot.segment.local.segment.store.TextIndexUtils;
 import org.apache.pinot.segment.spi.ColumnMetadata;
@@ -50,6 +49,7 @@ import org.apache.pinot.segment.spi.index.creator.TextIndexCreator;
 import org.apache.pinot.segment.spi.index.mutable.MutableIndex;
 import org.apache.pinot.segment.spi.index.mutable.provider.MutableIndexContext;
 import org.apache.pinot.segment.spi.index.reader.TextIndexReader;
+import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
 import org.apache.pinot.segment.spi.store.SegmentDirectory;
 import org.apache.pinot.spi.config.table.FSTType;
 import org.apache.pinot.spi.config.table.FieldConfig;
@@ -149,19 +149,25 @@ public class TextIndexType extends AbstractIndexType<TextIndexConfig, TextIndexR
     @Override
     public TextIndexReader createIndexReader(SegmentDirectory.Reader segmentReader, FieldIndexConfigs fieldIndexConfigs,
         ColumnMetadata metadata)
-        throws IndexReaderConstraintException {
+        throws IndexReaderConstraintException, IOException {
       if (metadata.getDataType() != FieldSpec.DataType.STRING) {
         throw new IndexReaderConstraintException(metadata.getColumnName(), StandardIndexes.text(),
             "Text index is currently only supported on STRING type columns");
       }
+      if (segmentReader.hasIndexFor(metadata.getColumnName(), StandardIndexes.text())) {
+        PinotDataBuffer buffer = segmentReader.getIndexFor(metadata.getColumnName(), StandardIndexes.text());
+        TextIndexConfig indexConfig = fieldIndexConfigs.getConfig(StandardIndexes.text());
+        //return new LuceneTextIndexReader(metadata.getColumnName(), segmentDir, metadata.getTotalDocs(), indexConfig);
+        return null;
+      }
+
       File segmentDir = segmentReader.toSegmentDirectory().getPath().toFile();
       FSTType textIndexFSTType = TextIndexUtils.getFSTTypeOfIndex(segmentDir, metadata.getColumnName());
       if (textIndexFSTType == FSTType.NATIVE) {
         // TODO: Support loading native text index from a PinotDataBuffer
         return new NativeTextIndexReader(metadata.getColumnName(), segmentDir);
       }
-      TextIndexConfig indexConfig = fieldIndexConfigs.getConfig(StandardIndexes.text());
-      return new LuceneTextIndexReader(metadata.getColumnName(), segmentDir, metadata.getTotalDocs(), indexConfig);
+      return null;
     }
   }
 

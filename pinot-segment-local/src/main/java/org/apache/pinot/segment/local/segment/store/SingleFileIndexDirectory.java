@@ -140,9 +140,9 @@ class SingleFileIndexDirectory extends ColumnIndexDirectory {
 
   @Override
   public boolean hasIndexFor(String column, IndexType<?, ?, ?> type) {
-    if (type == StandardIndexes.text()) {
+    /*if (type == StandardIndexes.text()) {
       return TextIndexUtils.hasTextIndex(_segmentDirectory, column);
-    }
+    }*/
     if (type == StandardIndexes.vector()) {
       return VectorIndexUtils.hasVectorIndex(_segmentDirectory, column);
     }

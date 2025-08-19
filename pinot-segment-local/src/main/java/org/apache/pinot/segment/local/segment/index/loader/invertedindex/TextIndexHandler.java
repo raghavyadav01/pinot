@@ -116,9 +116,10 @@ public class TextIndexHandler extends BaseIndexHandler {
     }
     for (String column : columnsToAddIdx) {
       ColumnMetadata columnMetadata = _segmentDirectory.getSegmentMetadata().getColumnMetadataFor(column);
-      if (shouldCreateTextIndex(columnMetadata)) {
+      //TODO: Fix this
+     /* if (shouldCreateTextIndex(columnMetadata)) {
         createTextIndexForColumn(segmentWriter, columnMetadata);
-      }
+      }*/
     }
   }
 

@@ -155,7 +155,7 @@ public class SegmentV1V2ToV3FormatConverter implements SegmentFormatConverter {
         for (String column : v2Metadata.getAllColumns()) {
           for (IndexType<?, ?, ?> indexType : IndexService.getInstance().getAllIndexes()) {
             // NOTE: Text index is copied separately
-            if (indexType != StandardIndexes.text() && indexType != StandardIndexes.vector()) {
+            if (indexType != StandardIndexes.vector()) {
               copyIndexIfExists(v2DataReader, v3DataWriter, column, indexType);
             }
           }

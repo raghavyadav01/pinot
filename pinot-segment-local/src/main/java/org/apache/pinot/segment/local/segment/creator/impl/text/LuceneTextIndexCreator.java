@@ -70,6 +70,7 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
   private final File _indexFile;
   private Directory _indexDirectory;
   private IndexWriter _indexWriter;
+  private File _segmentDirectory = null;
   private int _nextDocId = 0;
 
   public static HashSet<String> getDefaultEnglishStopWordsSet() {
@@ -112,7 +113,7 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
       @Nullable File consumerDir, @Nullable int[] immutableToMutableIdMap, TextIndexConfig config) {
     _textColumn = column;
     _commitOnClose = commit;
-
+    _segmentDirectory = segmentIndexDir;
     String luceneAnalyzerClass = config.getLuceneAnalyzerClass();
     try {
       // segment generation is always in V1 and later we convert (as part of post creation processing)
@@ -350,12 +351,29 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
       // based on the commit flag set in IndexWriterConfig, this will decide to commit or not
       _indexWriter.close();
       _indexDirectory.close();
+
     } catch (Exception e) {
       throw new RuntimeException("Caught exception while closing the Lucene index for column: " + _textColumn, e);
     } finally {
       // remove leftover write.lock file, as well as artifacts from .commit() being called on the realtime index
       if (!_commitOnClose) {
         FileUtils.deleteQuietly(_indexFile);
+      }
+      // Combine all the Text Index Files into a single file named {column}.text in the segment directory
+      String outputFilePath = new File(_segmentDirectory, _textColumn + ".lucene.index").getAbsolutePath();
+      LuceneTextIndexCombined.combineLuceneIndexFiles(_segmentDirectory, outputFilePath);
+
+      // Delete the lucene text index directory
+      File textIndexFile = SegmentDirectoryPaths.findTextIndexIndexFile(_segmentDirectory, _textColumn);
+      if (textIndexFile != null && textIndexFile.exists()) {
+        try {
+          FileUtils.deleteDirectory(textIndexFile);
+          LOGGER.info("Successfully deleted Lucene text index directory: {}", textIndexFile.getAbsolutePath());
+        } catch (IOException e) {
+          LOGGER.warn("Failed to delete Lucene text index directory: {}", textIndexFile.getAbsolutePath(), e);
+        }
+      } else {
+        LOGGER.warn("Text index directory not found or does not exist for column: {}", _textColumn);
       }
     }
   }
