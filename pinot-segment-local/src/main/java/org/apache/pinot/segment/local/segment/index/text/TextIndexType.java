@@ -31,6 +31,7 @@ import org.apache.pinot.segment.local.realtime.impl.invertedindex.RealtimeLucene
 import org.apache.pinot.segment.local.segment.creator.impl.text.LuceneTextIndexCreator;
 import org.apache.pinot.segment.local.segment.creator.impl.text.NativeTextIndexCreator;
 import org.apache.pinot.segment.local.segment.index.loader.invertedindex.TextIndexHandler;
+import org.apache.pinot.segment.local.segment.index.readers.text.LuceneTextIndexReader;
 import org.apache.pinot.segment.local.segment.index.readers.text.NativeTextIndexReader;
 import org.apache.pinot.segment.local.segment.store.TextIndexUtils;
 import org.apache.pinot.segment.spi.ColumnMetadata;
@@ -157,17 +158,17 @@ public class TextIndexType extends AbstractIndexType<TextIndexConfig, TextIndexR
       if (segmentReader.hasIndexFor(metadata.getColumnName(), StandardIndexes.text())) {
         PinotDataBuffer buffer = segmentReader.getIndexFor(metadata.getColumnName(), StandardIndexes.text());
         TextIndexConfig indexConfig = fieldIndexConfigs.getConfig(StandardIndexes.text());
-        //return new LuceneTextIndexReader(metadata.getColumnName(), segmentDir, metadata.getTotalDocs(), indexConfig);
-        return null;
+        return new LuceneTextIndexReader(metadata.getColumnName(), buffer, metadata.getTotalDocs(), indexConfig);
       }
 
       File segmentDir = segmentReader.toSegmentDirectory().getPath().toFile();
       FSTType textIndexFSTType = TextIndexUtils.getFSTTypeOfIndex(segmentDir, metadata.getColumnName());
-      if (textIndexFSTType == FSTType.NATIVE) {
-        // TODO: Support loading native text index from a PinotDataBuffer
-        return new NativeTextIndexReader(metadata.getColumnName(), segmentDir);
+      if (textIndexFSTType != FSTType.NATIVE) {
+        throw new IndexReaderConstraintException(metadata.getColumnName(), StandardIndexes.text(),
+            "Text index corrupted");
       }
-      return null;
+
+      return new NativeTextIndexReader(metadata.getColumnName(), segmentDir);
     }
   }
 
