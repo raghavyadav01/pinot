@@ -351,7 +351,6 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
       // based on the commit flag set in IndexWriterConfig, this will decide to commit or not
       _indexWriter.close();
       _indexDirectory.close();
-
     } catch (Exception e) {
       throw new RuntimeException("Caught exception while closing the Lucene index for column: " + _textColumn, e);
     } finally {
