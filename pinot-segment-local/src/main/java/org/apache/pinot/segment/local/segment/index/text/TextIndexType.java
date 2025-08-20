@@ -120,7 +120,8 @@ public class TextIndexType extends AbstractIndexType<TextIndexConfig, TextIndexR
       return new NativeTextIndexCreator(context.getFieldSpec().getName(), context.getTableNameWithType(),
           context.isContinueOnError(), context.getIndexDir());
     } else {
-      return new LuceneTextIndexCreator(context, indexConfig);
+      // TODO:(Raghav) Should we have a flag for combined index creation?
+      return new LuceneTextIndexCreator(context, true, indexConfig);
     }
   }
 

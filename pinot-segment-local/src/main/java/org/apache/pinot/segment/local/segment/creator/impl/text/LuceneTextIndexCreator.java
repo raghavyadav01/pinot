@@ -67,6 +67,7 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
   private final String _textColumn;
   private final boolean _commitOnClose;
   private final boolean _reuseMutableIndex;
+  private final boolean _combineAndCleanupFiles;
   private final File _indexFile;
   private Directory _indexDirectory;
   private IndexWriter _indexWriter;
@@ -94,6 +95,7 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
    * @param realtimeConversion index creator should create an index using the realtime segment
    * @param consumerDir consumer dir containing the realtime index, used when realtimeConversion and commit is true
    * @param immutableToMutableIdMap immutableToMutableIdMap from segment conversion
+   * @param combineAndCleanupFiles true if files should be combined and text index directory should be removed
    * Note on commit:
    *               Once {@link SegmentColumnarIndexCreator}
    *               finishes indexing all documents/rows for the segment, we need to commit and close
@@ -110,9 +112,11 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
    * @param config the text index config
    */
   public LuceneTextIndexCreator(String column, File segmentIndexDir, boolean commit, boolean realtimeConversion,
-      @Nullable File consumerDir, @Nullable int[] immutableToMutableIdMap, TextIndexConfig config) {
+      @Nullable File consumerDir, @Nullable int[] immutableToMutableIdMap, boolean combineAndCleanupFiles,
+      TextIndexConfig config) {
     _textColumn = column;
     _commitOnClose = commit;
+    _combineAndCleanupFiles = combineAndCleanupFiles;
     _segmentDirectory = segmentIndexDir;
     String luceneAnalyzerClass = config.getLuceneAnalyzerClass();
     try {
@@ -181,9 +185,32 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
     }
   }
 
+  /**
+   * Legacy constructor for backward compatibility. Calls the new constructor with combineAndCleanupFiles=false.
+   * @param column column name
+   * @param segmentIndexDir segment index directory
+   * @param commit true if the index should be committed
+   * @param realtimeConversion index creator should create an index using the realtime segment
+   * @param consumerDir consumer dir containing the realtime index
+   * @param immutableToMutableIdMap immutableToMutableIdMap from segment conversion
+   * @param config the text index config
+   */
+  public LuceneTextIndexCreator(String column, File segmentIndexDir, boolean commit, boolean realtimeConversion,
+      @Nullable File consumerDir, @Nullable int[] immutableToMutableIdMap, TextIndexConfig config) {
+    this(column, segmentIndexDir, commit, realtimeConversion, consumerDir, immutableToMutableIdMap, false, config);
+  }
+
+  public LuceneTextIndexCreator(IndexCreationContext context, boolean combineAndCleanupFiles,
+      TextIndexConfig indexConfig) {
+    this(context.getFieldSpec().getName(), context.getIndexDir(), context.isTextCommitOnClose(),
+        context.isRealtimeConversion(), context.getConsumerDir(), context.getImmutableToMutableIdMap(),
+        combineAndCleanupFiles, indexConfig);
+  }
+
   public LuceneTextIndexCreator(IndexCreationContext context, TextIndexConfig indexConfig) {
     this(context.getFieldSpec().getName(), context.getIndexDir(), context.isTextCommitOnClose(),
-        context.isRealtimeConversion(), context.getConsumerDir(), context.getImmutableToMutableIdMap(), indexConfig);
+        context.isRealtimeConversion(), context.getConsumerDir(), context.getImmutableToMutableIdMap(), false,
+        indexConfig);
   }
 
   public IndexWriter getIndexWriter() {
@@ -341,6 +368,36 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
     }
   }
 
+  /**
+   * Combines all text index files into a single file and removes the text index directory.
+   * This method is called only when _combineAndCleanupFiles is true.
+   */
+  private void combineAndCleanupTextIndexFiles()
+      throws IOException {
+    // Combine all the Text Index Files into a single file named {column}.text in the segment directory
+    String outputFilePath = new File(_segmentDirectory, _textColumn + ".lucene.index").getAbsolutePath();
+
+    // Find the lucene text index directory first
+    File textIndexFile = SegmentDirectoryPaths.findTextIndexIndexFile(_segmentDirectory, _textColumn);
+    if (textIndexFile != null && textIndexFile.exists()) {
+      LuceneTextIndexCombined.combineLuceneIndexFiles(textIndexFile, outputFilePath);
+    } else {
+      LOGGER.warn("Text index directory not found for combining: {}", _textColumn);
+    }
+
+    // Delete the lucene text index directory
+    if (textIndexFile != null && textIndexFile.exists()) {
+      try {
+        FileUtils.deleteDirectory(textIndexFile);
+        LOGGER.info("Successfully deleted Lucene text index directory: {}", textIndexFile.getAbsolutePath());
+      } catch (IOException e) {
+        LOGGER.warn("Failed to delete Lucene text index directory: {}", textIndexFile.getAbsolutePath(), e);
+      }
+    } else {
+      LOGGER.warn("Text index directory not found or does not exist for column: {}", _textColumn);
+    }
+  }
+
   @Override
   public void close()
       throws IOException {
@@ -358,27 +415,9 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
       if (!_commitOnClose) {
         FileUtils.deleteQuietly(_indexFile);
       }
-      // Combine all the Text Index Files into a single file named {column}.text in the segment directory
-      String outputFilePath = new File(_segmentDirectory, _textColumn + ".lucene.index").getAbsolutePath();
-
-      // Find the lucene text index directory first
-      File textIndexFile = SegmentDirectoryPaths.findTextIndexIndexFile(_segmentDirectory, _textColumn);
-      if (textIndexFile != null && textIndexFile.exists()) {
-        LuceneTextIndexCombined.combineLuceneIndexFiles(textIndexFile, outputFilePath);
-      } else {
-        LOGGER.warn("Text index directory not found for combining: {}", _textColumn);
-      }
-
-      // Delete the lucene text index directory
-      if (textIndexFile != null && textIndexFile.exists()) {
-        try {
-          FileUtils.deleteDirectory(textIndexFile);
-          LOGGER.info("Successfully deleted Lucene text index directory: {}", textIndexFile.getAbsolutePath());
-        } catch (IOException e) {
-          LOGGER.warn("Failed to delete Lucene text index directory: {}", textIndexFile.getAbsolutePath(), e);
-        }
-      } else {
-        LOGGER.warn("Text index directory not found or does not exist for column: {}", _textColumn);
+      // Combine files and cleanup directory only if flag is set
+      if (_combineAndCleanupFiles) {
+        combineAndCleanupTextIndexFiles();
       }
     }
   }
