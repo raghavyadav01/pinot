@@ -25,12 +25,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import org.apache.lucene.store.Directory;
+import org.apache.pinot.segment.local.segment.index.readers.text.LuceneTextIndexHeader.FileInfo;
+import org.apache.pinot.segment.local.segment.index.readers.text.LuceneTextIndexHeader.TextIndexMetadata;
 import org.apache.pinot.segment.spi.V1Constants;
 import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-
 /**
  * Utility class for reading Lucene text index from a combined buffer.
  * This class provides methods to extract files and create Lucene Directory
@@ -138,7 +138,7 @@ public class LuceneTextIndexBufferReader {
    */
   public static List<String> listFiles(PinotDataBuffer indexBuffer)
       throws IOException {
-    LuceneTextIndexHeader.TextIndexMetadata metadata = parseBufferMetadata(indexBuffer);
+    TextIndexMetadata metadata = parseBufferMetadata(indexBuffer);
     return metadata.getFileNames();
   }
 
@@ -150,19 +150,17 @@ public class LuceneTextIndexBufferReader {
    * @return FileInfo object, or null if not found
    * @throws IOException if buffer parsing fails
    */
-  public static LuceneTextIndexHeader.FileInfo getFileInfo(PinotDataBuffer indexBuffer, String fileName)
+  public static FileInfo getFileInfo(PinotDataBuffer indexBuffer, String fileName)
       throws IOException {
-    LuceneTextIndexHeader.TextIndexMetadata metadata = parseBufferMetadata(indexBuffer);
+    TextIndexMetadata metadata = parseBufferMetadata(indexBuffer);
     return metadata.getFileInfoMap().get(fileName);
   }
 
   /**
    * Parses buffer metadata from the combined index buffer
    */
-  private static LuceneTextIndexHeader.TextIndexMetadata parseBufferMetadata(PinotDataBuffer indexBuffer)
+  private static TextIndexMetadata parseBufferMetadata(PinotDataBuffer indexBuffer)
       throws IOException {
-    //indexBuffer.order();
-
     // Read and validate header
     byte[] magicBytes = new byte[9];
     indexBuffer.copyTo(0, magicBytes, 0, 9);
@@ -172,13 +170,25 @@ public class LuceneTextIndexBufferReader {
       throw new IOException("Invalid magic number: " + magic);
     }
 
-    int version = indexBuffer.getInt(9);
+    // Read version as little-endian bytes and convert manually
+    byte[] versionBytes = new byte[4];
+    indexBuffer.copyTo(9, versionBytes, 0, 4);
+    int version = java.nio.ByteBuffer.wrap(versionBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt();
+
+    LOGGER.debug("Reading buffer version: {}, expected version: {}", version, VERSION);
     if (version != VERSION) {
-      throw new IOException("Unsupported version: " + version);
+      throw new IOException("Unsupported version: " + version + ", expected: " + VERSION);
     }
 
-    long totalSize = indexBuffer.getLong(13);
-    int fileCount = indexBuffer.getInt(21);
+    // Read total size as little-endian bytes
+    byte[] totalSizeBytes = new byte[8];
+    indexBuffer.copyTo(13, totalSizeBytes, 0, 8);
+    long totalSize = java.nio.ByteBuffer.wrap(totalSizeBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getLong();
+
+    // Read file count as little-endian bytes
+    byte[] fileCountBytes = new byte[4];
+    indexBuffer.copyTo(21, fileCountBytes, 0, 4);
+    int fileCount = java.nio.ByteBuffer.wrap(fileCountBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt();
     // Skip reserved bytes at position 25
 
     LOGGER.debug("Parsing buffer metadata: {} files, total size: {} bytes", fileCount, totalSize);
@@ -189,7 +199,10 @@ public class LuceneTextIndexBufferReader {
     long metadataOffset = HEADER_SIZE;
 
     for (int i = 0; i < fileCount; i++) {
-      short nameLength = indexBuffer.getShort(metadataOffset);
+      // Read name length as little-endian
+      byte[] nameLengthBytes = new byte[2];
+      indexBuffer.copyTo(metadataOffset, nameLengthBytes, 0, 2);
+      short nameLength = java.nio.ByteBuffer.wrap(nameLengthBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getShort();
       metadataOffset += 2;
 
       byte[] nameBytes = new byte[nameLength];
@@ -197,9 +210,16 @@ public class LuceneTextIndexBufferReader {
       String fileName = new String(nameBytes);
       metadataOffset += nameLength;
 
-      long fileOffset = indexBuffer.getLong(metadataOffset);
+      // Read file offset as little-endian
+      byte[] fileOffsetBytes = new byte[8];
+      indexBuffer.copyTo(metadataOffset, fileOffsetBytes, 0, 8);
+      long fileOffset = java.nio.ByteBuffer.wrap(fileOffsetBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getLong();
       metadataOffset += 8;
-      long fileSize = indexBuffer.getLong(metadataOffset);
+
+      // Read file size as little-endian
+      byte[] fileSizeBytes = new byte[8];
+      indexBuffer.copyTo(metadataOffset, fileSizeBytes, 0, 8);
+      long fileSize = java.nio.ByteBuffer.wrap(fileSizeBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getLong();
       metadataOffset += 8;
 
       fileNames.add(fileName);
