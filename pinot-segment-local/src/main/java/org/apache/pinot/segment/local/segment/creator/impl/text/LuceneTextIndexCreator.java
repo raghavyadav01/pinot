@@ -360,10 +360,16 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
       }
       // Combine all the Text Index Files into a single file named {column}.text in the segment directory
       String outputFilePath = new File(_segmentDirectory, _textColumn + ".lucene.index").getAbsolutePath();
-      LuceneTextIndexCombined.combineLuceneIndexFiles(_segmentDirectory, outputFilePath);
+
+      // Find the lucene text index directory first
+      File textIndexFile = SegmentDirectoryPaths.findTextIndexIndexFile(_segmentDirectory, _textColumn);
+      if (textIndexFile != null && textIndexFile.exists()) {
+        LuceneTextIndexCombined.combineLuceneIndexFiles(textIndexFile, outputFilePath);
+      } else {
+        LOGGER.warn("Text index directory not found for combining: {}", _textColumn);
+      }
 
       // Delete the lucene text index directory
-      File textIndexFile = SegmentDirectoryPaths.findTextIndexIndexFile(_segmentDirectory, _textColumn);
       if (textIndexFile != null && textIndexFile.exists()) {
         try {
           FileUtils.deleteDirectory(textIndexFile);

@@ -137,19 +137,20 @@ public class LuceneTextIndexReader implements TextIndexReader {
     try {
       // Create Lucene Directory from buffer
       Directory indexDirectory = LuceneTextIndexBufferReader.createLuceneDirectory(indexBuffer, column);
-      
+
       // Extract properties from buffer
       Properties properties = LuceneTextIndexBufferReader.extractProperties(indexBuffer, column);
       if (!properties.isEmpty()) {
         config = updateConfigFromProperties(properties, config);
       }
-      
+
       // Extract docId mapping buffer from combined index buffer
-      PinotDataBuffer docIdMappingBuffer = LuceneTextIndexBufferReader.extractDocIdMappingBuffer(indexBuffer, column, numDocs);
-      
+      PinotDataBuffer docIdMappingBuffer =
+          LuceneTextIndexBufferReader.extractDocIdMappingBuffer(indexBuffer, column, numDocs);
+
       // Initialize from components
       initializeFromComponents(indexDirectory, docIdMappingBuffer, config, numDocs);
-      
+
       LOGGER.info("Successfully read lucene index for {} from buffer", _column);
     } catch (Exception e) {
       LOGGER.error("Failed to instantiate Lucene text index reader for column {} from buffer", column, e);
@@ -343,34 +344,34 @@ public class LuceneTextIndexReader implements TextIndexReader {
    */
   private TextIndexConfig updateConfigFromProperties(Properties properties, TextIndexConfig config) {
     TextIndexConfigBuilder builder = new TextIndexConfigBuilder(config);
-    
+
     String analyzerClass = properties.getProperty(FieldConfig.TEXT_INDEX_LUCENE_ANALYZER_CLASS);
     if (analyzerClass != null) {
       builder.withLuceneAnalyzerClass(analyzerClass);
     }
-    
+
     String analyzerArgs = properties.getProperty(FieldConfig.TEXT_INDEX_LUCENE_ANALYZER_CLASS_ARGS);
     if (analyzerArgs != null) {
       List<String> args = Arrays.asList(analyzerArgs.split(","));
       builder.withLuceneAnalyzerClassArgs(args);
     }
-    
+
     String analyzerArgTypes = properties.getProperty(FieldConfig.TEXT_INDEX_LUCENE_ANALYZER_CLASS_ARG_TYPES);
     if (analyzerArgTypes != null) {
       List<String> argTypes = Arrays.asList(analyzerArgTypes.split(","));
       builder.withLuceneAnalyzerClassArgTypes(argTypes);
     }
-    
+
     String queryParserClass = properties.getProperty(FieldConfig.TEXT_INDEX_LUCENE_QUERY_PARSER_CLASS);
     if (queryParserClass != null) {
       builder.withLuceneQueryParserClass(queryParserClass);
     }
-    
+
     String docIdTranslatorMode = properties.getProperty(FieldConfig.TEXT_INDEX_LUCENE_DOC_ID_TRANSLATOR_MODE);
     if (docIdTranslatorMode != null) {
       builder.withDocIdTranslatorMode(docIdTranslatorMode);
     }
-    
+
     return builder.build();
   }
 

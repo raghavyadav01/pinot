@@ -161,7 +161,7 @@ public class LuceneTextIndexBufferReader {
    */
   private static LuceneTextIndexHeader.TextIndexMetadata parseBufferMetadata(PinotDataBuffer indexBuffer)
       throws IOException {
-    indexBuffer.order();
+    //indexBuffer.order();
 
     // Read and validate header
     byte[] magicBytes = new byte[9];

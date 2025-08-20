@@ -19,7 +19,6 @@
 package org.apache.pinot.segment.local.segment.index.readers.text;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import org.apache.lucene.store.BufferedIndexInput;
 import org.apache.lucene.store.IndexInput;
@@ -66,21 +65,24 @@ public class PinotBufferIndexInput extends BufferedIndexInput {
   }
 
   @Override
-  protected void seekInternal(long pos)
-      throws IOException {
-    throw new UnsupportedEncodingException(
-        "Seeking is not supported for PinotBufferIndexInput. Use a different implementation if seeking is required.");
+  protected void seekInternal(long pos) throws IOException {
+    if (pos < 0 || pos > _length) {
+      throw new IOException("Seek position out of bounds: " + pos + ", length: " + _length);
+    }
+    // BufferedIndexInput handles the actual seeking, we just validate bounds
   }
 
   @Override
-  public IndexInput slice(String sliceDescription, long offset, long length)
-      throws IOException {
-    throw new UnsupportedEncodingException(
-        "Slicing is not supported for PinotBufferIndexInput. Use a different implementation if slicing is required.");
+  public IndexInput slice(String sliceDescription, long offset, long length) throws IOException {
+    if (offset < 0 || length < 0 || offset + length > _length) {
+      throw new IOException("Slice out of bounds: offset=" + offset + ", length=" + length + ", fileLength=" + _length);
+    }
+    PinotDataBuffer sliceBuffer = _buffer.view(offset, offset + length);
+    return new PinotBufferIndexInput(getFullSliceDescription(sliceDescription), sliceBuffer, 0, length);
   }
 
   @Override
   public String toString() {
-    return "PinotBufferIndexInput(name=" + getFullSliceDescription("") + ", length=" + _length + ")";
+    return "PinotBufferIndexInput(name=" + super.toString() + ", length=" + _length + ")";
   }
 }
