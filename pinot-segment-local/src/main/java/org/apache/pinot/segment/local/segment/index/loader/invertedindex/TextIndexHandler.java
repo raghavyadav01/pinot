@@ -26,6 +26,7 @@ import java.util.Set;
 import org.apache.pinot.segment.local.segment.index.dictionary.DictionaryIndexType;
 import org.apache.pinot.segment.local.segment.index.loader.BaseIndexHandler;
 import org.apache.pinot.segment.local.segment.index.loader.SegmentPreProcessor;
+import org.apache.pinot.segment.local.segment.store.TextIndexUtils;
 import org.apache.pinot.segment.spi.ColumnMetadata;
 import org.apache.pinot.segment.spi.creator.IndexCreationContext;
 import org.apache.pinot.segment.spi.index.FieldIndexConfigs;
@@ -78,7 +79,8 @@ public class TextIndexHandler extends BaseIndexHandler {
   }
 
   @Override
-  public boolean needUpdateIndices(SegmentDirectory.Reader segmentReader) {
+  public boolean needUpdateIndices(SegmentDirectory.Reader segmentReader)
+      throws Exception {
     String segmentName = _segmentDirectory.getSegmentMetadata().getName();
     Set<String> columnsToAddIdx = new HashSet<>(_columnsToAddIdx);
     Set<String> existingColumns = segmentReader.toSegmentDirectory().getColumnsWithIndex(StandardIndexes.text());
@@ -94,6 +96,13 @@ public class TextIndexHandler extends BaseIndexHandler {
       ColumnMetadata columnMetadata = _segmentDirectory.getSegmentMetadata().getColumnMetadataFor(column);
       if (shouldCreateTextIndex(columnMetadata)) {
         LOGGER.info("Need to create new text index for segment: {}, column: {}", segmentName, column);
+        return true;
+      }
+    }
+    // Check if existing indexes need configuration updates based on useCombineFiles
+    for (String column : existingColumns) {
+      if (hasTextIndexConfigurationChanged(column, segmentReader)) {
+        LOGGER.info("Need to update text index configuration for segment: {}, column: {}", segmentName, column);
         return true;
       }
     }
@@ -117,6 +126,16 @@ public class TextIndexHandler extends BaseIndexHandler {
     for (String column : columnsToAddIdx) {
       ColumnMetadata columnMetadata = _segmentDirectory.getSegmentMetadata().getColumnMetadataFor(column);
       if (shouldCreateTextIndex(columnMetadata)) {
+        createTextIndexForColumn(segmentWriter, columnMetadata);
+      }
+    }
+    // Handle configuration changes for existing indexes
+    for (String column : existingColumns) {
+      if (hasTextIndexConfigurationChanged(column, segmentWriter)) {
+        LOGGER.info("Updating text index configuration for segment: {}, column: {}", segmentName, column);
+        // Remove existing index and recreate with new configuration
+        segmentWriter.removeIndex(column, StandardIndexes.text());
+        ColumnMetadata columnMetadata = _segmentDirectory.getSegmentMetadata().getColumnMetadataFor(column);
         createTextIndexForColumn(segmentWriter, columnMetadata);
       }
     }
@@ -247,5 +266,36 @@ public class TextIndexHandler extends BaseIndexHandler {
         }
       }
     }
+  }
+
+  /**
+   * Checks if text index configuration has changed based on useCombineFiles flag.
+   *
+   * The method uses TextIndexUtils.hasTextIndex() to determine the format:
+   * - If TextIndexUtils.hasTextIndex() returns true: indicates combined format (useCombineFiles = true)
+   * - If TextIndexUtils.hasTextIndex() returns false but text index exists: indicates directory format
+   * (useCombineFiles = false)
+   *
+   * @param columnName the column name to check
+   * @param segmentReader the segment reader to access the segment
+   * @return true if the text index configuration has changed and needs reprocessing, false otherwise
+   * @throws Exception if there's an error checking the text index directory structure
+   */
+  private boolean hasTextIndexConfigurationChanged(String columnName, SegmentDirectory.Reader segmentReader)
+      throws Exception {
+    // Get current configuration
+    TextIndexConfig currentConfig = _fieldIndexConfigs.get(columnName).getConfig(StandardIndexes.text());
+
+    // Check if current config expects combined format
+    boolean currentExpectsCombined = currentConfig.isUseCombineFiles();
+
+    // Check if existing index is in combined format using TextIndexUtils
+    File indexDir = _segmentDirectory.getSegmentMetadata().getIndexDir();
+    File segmentDirectory =
+        SegmentDirectoryPaths.segmentDirectoryFor(indexDir, _segmentDirectory.getSegmentMetadata().getVersion());
+    boolean existingIsCombined = !TextIndexUtils.hasTextIndex(segmentDirectory, columnName);
+
+    // If the expected format doesn't match the existing format, we need an update
+    return currentExpectsCombined != existingIsCombined;
   }
 }

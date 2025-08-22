@@ -375,7 +375,8 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
   private void combineAndCleanupTextIndexFiles()
       throws IOException {
     // Combine all the Text Index Files into a single file named {column}.text in the segment directory
-    String outputFilePath = new File(_segmentDirectory, _textColumn + ".lucene.index").getAbsolutePath();
+    String outputFilePath = new File(_segmentDirectory,
+        _textColumn + V1Constants.Indexes.LUCENE_COMBINE_TEXT_INDEX_FILE_EXTENSION).getAbsolutePath();
 
     // Find the lucene text index directory first
     File textIndexFile = SegmentDirectoryPaths.findTextIndexIndexFile(_segmentDirectory, _textColumn);

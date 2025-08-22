@@ -67,12 +67,7 @@ public class TextIndexType extends AbstractIndexType<TextIndexConfig, TextIndexR
   public static final String INDEX_DISPLAY_NAME = "text";
   // TODO: Should V1Constants.Indexes.LUCENE_TEXT_INDEX_DOCID_MAPPING_FILE_EXTENSION be added here?
   private static final List<String> EXTENSIONS = Lists.newArrayList(
-      V1Constants.Indexes.LUCENE_TEXT_INDEX_FILE_EXTENSION,
-      V1Constants.Indexes.NATIVE_TEXT_INDEX_FILE_EXTENSION,
-      V1Constants.Indexes.LUCENE_V9_TEXT_INDEX_FILE_EXTENSION,
-      V1Constants.Indexes.LUCENE_V99_TEXT_INDEX_FILE_EXTENSION,
-      V1Constants.Indexes.LUCENE_V912_TEXT_INDEX_FILE_EXTENSION
-  );
+      V1Constants.Indexes.LUCENE_COMBINE_TEXT_INDEX_FILE_EXTENSION);
 
   protected TextIndexType() {
     super(StandardIndexes.TEXT_ID);
@@ -120,8 +115,7 @@ public class TextIndexType extends AbstractIndexType<TextIndexConfig, TextIndexR
       return new NativeTextIndexCreator(context.getFieldSpec().getName(), context.getTableNameWithType(),
           context.isContinueOnError(), context.getIndexDir());
     } else {
-      // TODO:(Raghav) Should we have a flag for combined index creation?
-      return new LuceneTextIndexCreator(context, true, indexConfig);
+      return new LuceneTextIndexCreator(context, indexConfig.isUseCombineFiles(), indexConfig);
     }
   }
 
@@ -156,20 +150,19 @@ public class TextIndexType extends AbstractIndexType<TextIndexConfig, TextIndexR
         throw new IndexReaderConstraintException(metadata.getColumnName(), StandardIndexes.text(),
             "Text index is currently only supported on STRING type columns");
       }
-      if (segmentReader.hasIndexFor(metadata.getColumnName(), StandardIndexes.text())) {
-        PinotDataBuffer buffer = segmentReader.getIndexFor(metadata.getColumnName(), StandardIndexes.text());
-        TextIndexConfig indexConfig = fieldIndexConfigs.getConfig(StandardIndexes.text());
-        return new LuceneTextIndexReader(metadata.getColumnName(), buffer, metadata.getTotalDocs(), indexConfig);
-      }
-
       File segmentDir = segmentReader.toSegmentDirectory().getPath().toFile();
-      FSTType textIndexFSTType = TextIndexUtils.getFSTTypeOfIndex(segmentDir, metadata.getColumnName());
-      if (textIndexFSTType != FSTType.NATIVE) {
-        throw new IndexReaderConstraintException(metadata.getColumnName(), StandardIndexes.text(),
-            "Text index corrupted");
+      TextIndexConfig indexConfig = fieldIndexConfigs.getConfig(StandardIndexes.text());
+      if (indexConfig.isUseCombineFiles()) {
+        PinotDataBuffer textIndexBuffer = segmentReader.getIndexFor(metadata.getColumnName(), StandardIndexes.text());
+        return new LuceneTextIndexReader(metadata.getColumnName(), textIndexBuffer, metadata.getTotalDocs(),
+            indexConfig);
       }
-
-      return new NativeTextIndexReader(metadata.getColumnName(), segmentDir);
+      FSTType textIndexFSTType = TextIndexUtils.getFSTTypeOfIndex(segmentDir, metadata.getColumnName());
+      if (textIndexFSTType == FSTType.NATIVE) {
+        // TODO: Support loading native text index from a PinotDataBuffer
+        return new NativeTextIndexReader(metadata.getColumnName(), segmentDir);
+      }
+      return new LuceneTextIndexReader(metadata.getColumnName(), segmentDir, metadata.getTotalDocs(), indexConfig);
     }
   }
 
