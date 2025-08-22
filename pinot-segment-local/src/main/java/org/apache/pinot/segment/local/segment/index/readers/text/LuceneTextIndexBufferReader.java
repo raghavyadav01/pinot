@@ -80,11 +80,10 @@ public class LuceneTextIndexBufferReader {
    *
    * @param indexBuffer the buffer containing combined text index data
    * @param column the column name
-   * @param numDocs number of documents
    * @return PinotDataBuffer for docId mapping, or null if not found
    * @throws IOException if extraction fails
    */
-  public static PinotDataBuffer extractDocIdMappingBuffer(PinotDataBuffer indexBuffer, String column, int numDocs)
+  public static PinotDataBuffer extractDocIdMappingBuffer(PinotDataBuffer indexBuffer, String column)
       throws IOException {
     String mappingFileName = column + V1Constants.Indexes.LUCENE_TEXT_INDEX_DOCID_MAPPING_FILE_EXTENSION;
     LuceneTextIndexHeader.FileInfo fileInfo = getFileInfo(indexBuffer, mappingFileName);

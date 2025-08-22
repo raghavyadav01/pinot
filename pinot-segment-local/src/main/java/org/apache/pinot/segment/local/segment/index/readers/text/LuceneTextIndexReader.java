@@ -145,8 +145,7 @@ public class LuceneTextIndexReader implements TextIndexReader {
       }
 
       // Extract docId mapping buffer from combined index buffer
-      PinotDataBuffer docIdMappingBuffer =
-          LuceneTextIndexBufferReader.extractDocIdMappingBuffer(indexBuffer, column, numDocs);
+      PinotDataBuffer docIdMappingBuffer = LuceneTextIndexBufferReader.extractDocIdMappingBuffer(indexBuffer, column);
 
       // Initialize from components
       initializeFromComponents(indexDirectory, docIdMappingBuffer, config, numDocs);
