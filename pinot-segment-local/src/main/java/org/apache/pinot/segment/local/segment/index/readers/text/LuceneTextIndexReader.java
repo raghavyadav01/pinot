@@ -292,10 +292,6 @@ public class LuceneTextIndexReader implements TextIndexReader {
         buffer =
             PinotDataBuffer.mapFile(docIdMappingFile, /* readOnly */ true, 0, length, ByteOrder.LITTLE_ENDIAN, desc);
         return buffer;
-      } else {
-        buffer =
-            PinotDataBuffer.mapFile(docIdMappingFile, /* readOnly */ false, 0, length, ByteOrder.LITTLE_ENDIAN, desc);
-        return buffer;
       }
     } catch (Exception e) {
       if (buffer != null) {
@@ -304,6 +300,7 @@ public class LuceneTextIndexReader implements TextIndexReader {
       throw new RuntimeException(
           "Caught exception while preparing doc id mapping buffer for text index column: " + column, e);
     }
+    return null;
   }
 
   /**
