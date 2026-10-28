@@ -72,6 +72,11 @@ public class ImmutableDataSource extends BaseDataSource {
       return _columnMetadata.getFieldSpec().isSingleValueField() ? -1 : _columnMetadata.getMaxNumberOfMultiValues();
     }
 
+    @Override
+    public long getNumNulls() {
+      return _columnMetadata.getNumNulls();
+    }
+
     @Nullable
     @Override
     public Comparable getMinValue() {

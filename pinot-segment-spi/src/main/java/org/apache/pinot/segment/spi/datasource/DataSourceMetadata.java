@@ -80,4 +80,9 @@ public interface DataSourceMetadata {
   default int getMaxRowLengthInBytes() {
     return -1;
   }
+
+  /// Returns the number of null values in the column, or -1 when unknown.
+  default long getNumNulls() {
+    return -1;
+  }
 }

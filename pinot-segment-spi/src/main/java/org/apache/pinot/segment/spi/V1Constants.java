@@ -163,6 +163,7 @@ public class V1Constants {
       public static final String IS_NON_NULL = "isNonNull";
       // Optional
       public static final String MIN_VALUE = "minValue";
+      public static final String NUM_NULLS = "numNulls";
       // Optional
       public static final String MAX_VALUE = "maxValue";
       // Optional, set to true when both min and max value are null, and there is no need to regenerate them

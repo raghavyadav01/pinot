@@ -144,6 +144,9 @@ public class ColumnValueSegmentPruner extends ValueBasedSegmentPruner {
         : dataSourceCache.computeIfAbsent(column, col -> segment.getDataSource(column, query.getSchema()));
     assert dataSource != null;
     DataSourceMetadata dataSourceMetadata = dataSource.getDataSourceMetadata();
+    if (isAllNull(dataSourceMetadata)) {
+      return true;
+    }
 
     // Get lower/upper boundary value
     DataType dataType = dataSourceMetadata.getDataType();
@@ -208,6 +211,9 @@ public class ColumnValueSegmentPruner extends ValueBasedSegmentPruner {
 
   /// Returns `true` if the value is within the column's min/max value range, `false` otherwise.
   private boolean checkMinMaxRange(DataSourceMetadata dataSourceMetadata, Comparable value) {
+    if (isAllNull(dataSourceMetadata)) {
+      return false;
+    }
     Comparable minValue = dataSourceMetadata.getMinValue();
     if (minValue != null) {
       if (value.compareTo(minValue) < 0) {
@@ -221,5 +227,12 @@ public class ColumnValueSegmentPruner extends ValueBasedSegmentPruner {
       }
     }
     return true;
+  }
+
+  /// Returns `true` if every value of the column in the segment is null, which no EQ, IN or RANGE predicate matches.
+  private static boolean isAllNull(DataSourceMetadata dataSourceMetadata) {
+    long numNulls = dataSourceMetadata.getNumNulls();
+    return numNulls > 0 && numNulls >= dataSourceMetadata.getNumDocs() && dataSourceMetadata.getMinValue() == null
+        && dataSourceMetadata.getMaxValue() == null;
   }
 }

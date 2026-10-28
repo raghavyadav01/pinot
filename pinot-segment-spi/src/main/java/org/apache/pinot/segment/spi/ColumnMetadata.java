@@ -94,4 +94,9 @@ public interface ColumnMetadata extends ColumnShape {
   default long getDictionaryEncodedUncompressedValueSizeInBytes() {
     return UNAVAILABLE;
   }
+
+  /// Returns the number of null values recorded for the column, or -1 when the segment does not record it.
+  default long getNumNulls() {
+    return -1;
+  }
 }
