@@ -179,6 +179,32 @@ public class ColumnValueSegmentPrunerTest {
   }
 
   @Test
+  public void testAllNullColumnPruning() {
+    IndexSegment indexSegment = mockIndexSegment();
+
+    DataSource dataSource = mock(DataSource.class);
+    when(indexSegment.getDataSource(eq("column"), any(Schema.class))).thenReturn(dataSource);
+    DataSourceMetadata dataSourceMetadata = mock(DataSourceMetadata.class);
+    when(dataSourceMetadata.getDataType()).thenReturn(DataType.INT);
+    when(dataSourceMetadata.getNumDocs()).thenReturn(100);
+    when(dataSource.getDataSourceMetadata()).thenReturn(dataSourceMetadata);
+
+    // Unknown null count and no min/max: nothing is known about the values, so nothing is pruned
+    when(dataSourceMetadata.getNumNulls()).thenReturn(-1L);
+    assertFalse(runPruner(indexSegment, "SELECT COUNT(*) FROM testTable WHERE column = 5"));
+
+    // Some values are non-null but min/max are missing: still not pruned
+    when(dataSourceMetadata.getNumNulls()).thenReturn(40L);
+    assertFalse(runPruner(indexSegment, "SELECT COUNT(*) FROM testTable WHERE column = 5"));
+
+    // Every value is null: no EQ, IN or RANGE predicate can match
+    when(dataSourceMetadata.getNumNulls()).thenReturn(100L);
+    assertTrue(runPruner(indexSegment, "SELECT COUNT(*) FROM testTable WHERE column = 5"));
+    assertTrue(runPruner(indexSegment, "SELECT COUNT(*) FROM testTable WHERE column IN (1, 5)"));
+    assertTrue(runPruner(indexSegment, "SELECT COUNT(*) FROM testTable WHERE column > 5"));
+  }
+
+  @Test
   public void testPartitionPruning() {
     IndexSegment indexSegment = mockIndexSegment();
 
